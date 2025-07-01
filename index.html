@@ -9,122 +9,146 @@
         body {
             font-family: Arial, sans-serif;
             margin: 0;
-            background-color: #f6f2ef;
+            background-color: #fbe5d6;
             color: #5a1d1d;
         }
         .container {
-            max-width: 1000px;
-            margin: 40px auto;
-            background: #ffffff;
-            border-radius: 12px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-            overflow: hidden;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
         }
-        header {
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 40px;
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+        }
+        .logo img {
+            width: 50px;
+            margin-right: 12px;
+        }
+        .logo-text {
+            font-size: 1.8em;
+            font-weight: bold;
+        }
+        .button-top {
             background-color: #8a1c1c;
-            color: #fff;
-            padding: 20px;
-            text-align: center;
-            border-top-left-radius: 12px;
-            border-top-right-radius: 12px;
-        }
-        header img {
-            width: 100px;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: bold;
         }
         .hero {
-            background-color: #fbd5bd;
-            text-align: center;
-            padding: 50px 20px;
+            text-align: left;
+            max-width: 700px;
         }
         .hero h1 {
             font-size: 2.5em;
-            margin: 10px 0;
+            margin: 0 0 20px 0;
+            color: #802000;
         }
         .hero p {
             font-size: 1.2em;
-            max-width: 600px;
-            margin: 20px auto;
+            margin-bottom: 30px;
         }
-        .impact-copy {
-            background-color: #fff3ec;
-            text-align: center;
-            padding: 30px 20px;
-            font-size: 1.3em;
-            line-height: 1.6;
-            font-weight: bold;
-            border-top: 3px solid #f0c4a8;
-            border-bottom: 3px solid #f0c4a8;
-        }
-        .features, .section {
-            text-align: center;
-            padding: 40px 20px;
-        }
-        .features h2, .section h2 {
-            font-size: 1.8em;
-            margin-bottom: 20px;
-        }
-        .feature-list {
+        .checklist {
             list-style: none;
             padding: 0;
-            text-align: left;
-            max-width: 600px;
-            margin: 0 auto;
-        }
-        .feature-list li {
-            margin: 10px 0;
             font-size: 1.1em;
-            background-color: #ffe8d6;
-            padding: 10px;
-            border-radius: 8px;
         }
-        .feature-list li::before {
-            content: "✔️ ";
-            margin-right: 10px;
+        .checklist li {
+            margin: 12px 0;
+        }
+        .checklist li::before {
+            content: "✅ ";
             color: green;
+            margin-right: 6px;
         }
         .cta-button {
-            background-color: #8a1c1c;
-            color: #fff;
-            padding: 15px 30px;
-            font-size: 1em;
-            border: none;
+            background-color: #802000;
+            color: white;
+            padding: 14px 30px;
             border-radius: 25px;
-            cursor: pointer;
             text-decoration: none;
             display: inline-block;
-            margin: 20px auto;
+            font-weight: bold;
+            margin: 30px 0;
+        }
+        .main-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .phone-img {
+            max-width: 100%;
+            height: auto;
+        }
+        .subsection {
+            background-color: #fff1e7;
+            border-radius: 20px;
+            padding: 30px;
+            margin-top: 50px;
+        }
+        .subsection h2 {
+            font-size: 1.6em;
+        }
+        .subsection ol {
+            padding-left: 20px;
+        }
+        .subsection li {
+            margin: 10px 0;
+        }
+        .footer-section {
+            text-align: center;
+            margin-top: 60px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <header>
-            <img src="logo.png" alt="MeetSafe Logo">
-        </header>
-        <div class="hero">
-            <h1>Feel Safer on Every Date</h1>
-            <p>MeetSafe helps you stay in control and protected while meeting new people online. Protected by intuitive time and location logic.</p>
-            <a href="#" class="cta-button">Get Early Access</a>
+        <div class="header">
+            <div class="logo">
+                <img src="logo.png" alt="MeetSafe Logo">
+                <span class="logo-text">MeetSafe</span>
+            </div>
+            <a href="#" class="button-top">Get Early Access</a>
         </div>
-        <div class="impact-copy">
-            <p>"Location is useless if no one knows you're in danger."</p>
-            <p>"Knowing where you are isn't enough — knowing when you need help saves lives."</p>
-            <p>"Awareness isn't safety. Action is."</p>
+        <div class="main-section">
+            <div class="hero">
+                <h1>Feel Safer on Every Date</h1>
+                <p>MeetSafe helps you stay in control and protected while meeting new people online.</p>
+                <ul class="checklist">
+                    <li>Share your date plans with trusted friends</li>
+                    <li>Get discreet check-ins during your date</li>
+                    <li>Alert your circle instantly if something feels off</li>
+                    <li>Awareness isn't safety. Action is.</li>
+                </ul>
+                <a href="#" class="cta-button">Get Early Access</a>
+            </div>
+            <div>
+                <img src="phone.png" alt="App Screenshot" class="phone-img" style="max-width: 350px;">
+            </div>
         </div>
-        <div class="features">
-            <h2>How It Works</h2>
-            <ul class="feature-list">
-                <li>Share your date plans with trusted friends</li>
-                <li>Get discreet check-ins during your date</li>
-                <li>Alert your circle instantly if something feels off</li>
-            </ul>
+        <div class="subsection">
+            <h2>✨ How It Works</h2>
+            <ol>
+                <li>Share where you’re going and who you’re meeting</li>
+                <li>Set up check-ins, so someone always knows you’re okay</li>
+                <li>Trigger an alert anytime you feel uncomfortable</li>
+            </ol>
         </div>
-        <div class="section">
-            <h2>Dating Should Be Safe. Period.</h2>
-            <p>We're building MeetSafe with real people in mind — because everyone deserves to date with confidence.</p>
+        <div class="subsection">
+            <h2>❤️ Dating Should Be Safe. Period.</h2>
+            <p>We’re building MeetSafe with real people in mind — because everyone deserves to date with confidence.</p>
         </div>
-        <div class="section">
-            <h2>Join Our Early Access</h2>
+        <div class="footer-section">
+            <h2>🔔 Join Our Early Access</h2>
             <p>Be the first to try MeetSafe and help shape the future of safer dating.</p>
         </div>
     </div>
