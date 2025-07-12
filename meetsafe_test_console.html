@@ -1,0 +1,124 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MeetSafe Test Console</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f5f5f5;
+      color: #333;
+      padding: 20px;
+    }
+    .container {
+      max-width: 480px;
+      margin: auto;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+    }
+    h2 {
+      color: #802000;
+      margin-top: 0;
+      font-size: 1.5em;
+    }
+    .section {
+      margin-bottom: 30px;
+    }
+    label {
+      font-weight: bold;
+      display: block;
+      margin: 10px 0 5px;
+    }
+    input, select, button {
+      width: 100%;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+      margin-bottom: 10px;
+    }
+    button {
+      background: #802000;
+      color: white;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #5a1d1d;
+    }
+    .output {
+      background: #fff1e7;
+      padding: 10px;
+      border-radius: 12px;
+      margin-top: 10px;
+      font-size: 0.9em;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>MeetSafe Test Console</h2>
+
+    <div class="section">
+      <label for="rendezvousId">Rendezvous ID</label>
+      <input type="text" id="rendezvousId" placeholder="e.g. abc123" />
+
+      <label for="mode">Mode</label>
+      <select id="mode">
+        <option value="normal">Normal</option>
+        <option value="stealth">Stealth</option>
+      </select>
+
+      <label for="enteredPin">Entered PIN</label>
+      <input type="text" id="enteredPin" placeholder="Enter test PIN" />
+
+      <button onclick="simulatePin()">Simulate PIN Check</button>
+    </div>
+
+    <div class="section">
+      <label>Output</label>
+      <div id="output" class="output">Awaiting input...</div>
+    </div>
+  </div>
+
+  <script>
+    const alertPin = "6666";
+    const correctPin = "1234";
+    let retries = 0;
+
+    function simulatePin() {
+      const pin = document.getElementById("enteredPin").value.trim();
+      const output = document.getElementById("output");
+
+      if (pin === alertPin) {
+        output.textContent = "🛑 Silent alert triggered. Contact notified (in-app or SMS).";
+        retries = 0;
+        return;
+      }
+
+      if (pin === correctPin) {
+        output.textContent = "✅ Check-in successful. User confirmed safe.";
+        retries = 0;
+        return;
+      }
+
+      retries++;
+      if (retries === 1) {
+        output.textContent = "⚠️ Incorrect PIN. Try again.";
+      } else if (retries === 2) {
+        output.textContent = "⚠️ Last attempt. Enter PIN carefully.";
+      } else {
+        output.textContent = "🚨 3 failed attempts. Alert sent to contact.";
+        retries = 0;
+      }
+    }
+  </script>
+</body>
+</html>
