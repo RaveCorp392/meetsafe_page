@@ -4,104 +4,110 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Other Uses – MeetSafe</title>
-  <link rel="stylesheet" href="/styles.css" /> <!-- Assumes site-wide stylesheet -->
+  <link rel="stylesheet" href="/styles.css" /> <!-- Site-wide stylesheet assumed -->
   <style>
     body {
       font-family: 'Inter', sans-serif;
-      background-color: #fefefe;
-      color: #121212;
+      background-color: #fde9dd;
+      color: #3a1e14;
       margin: 0;
-      padding: 0;
+      padding: 2rem 1rem;
+    }
+    .container {
+      background: #fff;
+      border-radius: 1rem;
+      padding: 2rem;
+      max-width: 960px;
+      margin: 0 auto;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     }
     .header {
       text-align: center;
-      padding: 3rem 1rem 1rem;
-      background-color: #ffffff;
-      border-bottom: 4px solid #00a3ff;
+      padding-bottom: 1rem;
     }
     .header img {
       height: 48px;
       margin-bottom: 1rem;
     }
     .header h1 {
-      font-size: 2.25rem;
-      color: #0a0a0a;
+      font-size: 2rem;
+      color: #3a1e14;
       margin-bottom: 0.5rem;
     }
     .subtitle {
       font-size: 1.125rem;
-      color: #555;
+      color: #63362c;
     }
     .use-case-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 2rem;
-      padding: 2rem;
-      max-width: 1200px;
-      margin: 0 auto;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.5rem;
+      margin-top: 2rem;
     }
     .use-case {
-      background: #fff;
-      padding: 1.5rem;
-      border: 1px solid #e0f3ff;
-      border-radius: 1rem;
-      box-shadow: 0 2px 6px rgba(0, 163, 255, 0.08);
+      background: #fff7f3;
+      border: 1px solid #f8d5c3;
+      border-radius: 0.75rem;
+      padding: 1rem 1.25rem;
       transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
     .use-case:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 4px 12px rgba(0, 163, 255, 0.12);
+      transform: translateY(-3px);
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
     }
     .use-case h2 {
-      font-size: 1.25rem;
-      color: #0077cc;
-      margin-bottom: 0.5rem;
+      font-size: 1.1rem;
+      color: #963b22;
+      margin-bottom: 0.25rem;
     }
     .use-case p {
-      font-size: 1rem;
-      color: #333;
+      font-size: 0.95rem;
+      color: #4a2e25;
     }
     .footer {
       text-align: center;
-      padding: 2rem 1rem;
-      font-size: 1rem;
-      background-color: #f0faff;
-      color: #555;
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid #f1c6b6;
+      color: #5c342a;
+      font-size: 0.95rem;
     }
   </style>
 </head>
 <body>
-  <header class="header">
-    <img src="/logo.svg" alt="MeetSafe Logo" />
-    <h1>More Than Just Meetups</h1>
-    <p class="subtitle">MeetSafe helps in any situation where timing, location, and peace of mind matter.</p>
-  </header>
+  <div class="container">
+    <header class="header">
+      <img src="/images/logo.png" alt="MeetSafe Logo" />
+      <h1>More Than Just Meetups</h1>
+      <p class="subtitle">MeetSafe helps in any situation where timing, location, and peace of mind matter.</p>
+    </header>
 
-  <main class="use-case-grid">
-    <section class="use-case">
-      <h2>🥾 Hiking & Trail Running</h2>
-      <p>Stay safe on the trails. Automated check-ins and off-track alerts.</p>
-    </section>
-    <section class="use-case">
-      <h2>⛵ Sailing & Boating</h2>
-      <p>Time-based alerts for offshore adventures — even without signal.</p>
-    </section>
-    <section class="use-case">
-      <h2>🏃‍♀️ Night Runs & Solo Workouts</h2>
-      <p>24/7 gym? Late run? MeetSafe is your silent spotter and safety net.</p>
-    </section>
-    <section class="use-case">
-      <h2>💼 Remote Work & Solo Travel</h2>
-      <p>Peace of mind when you're off the grid or meeting someone new.</p>
-    </section>
-    <section class="use-case">
-      <h2>🎨 Personal Time & Hobbies</h2>
-      <p>Enjoy solo time knowing someone’s got your back if needed.</p>
-    </section>
-  </main>
+    <main class="use-case-grid">
+      <section class="use-case">
+        <h2>🥾 Hiking & Trail Running</h2>
+        <p>Stay safe on the trails. Automated check-ins and off-track alerts.</p>
+      </section>
+      <section class="use-case">
+        <h2>⛵ Sailing & Boating</h2>
+        <p>Time-based alerts for offshore adventures — even without signal.</p>
+      </section>
+      <section class="use-case">
+        <h2>🏃‍♀️ Night Runs & Solo Workouts</h2>
+        <p>24/7 gym? Late run? MeetSafe is your silent spotter and safety net.</p>
+      </section>
+      <section class="use-case">
+        <h2>💼 Remote Work & Solo Travel</h2>
+        <p>Peace of mind when you're off the grid or meeting someone new.</p>
+      </section>
+      <section class="use-case">
+        <h2>🎨 Personal Time & Hobbies</h2>
+        <p>Enjoy solo time knowing someone’s got your back if needed.</p>
+      </section>
+    </main>
 
-  <footer class="footer">
-    <p>Got a use case we haven’t listed? Let us know — we’re building MeetSafe with you in mind.</p>
-  </footer>
+    <footer class="footer">
+      <p>Got a use case we haven’t listed? Let us know — we’re building MeetSafe with you in mind.</p>
+    </footer>
+  </div>
 </body>
 </html>
