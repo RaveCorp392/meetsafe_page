@@ -1,1 +1,82 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>MeetSafe Test Console</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body { font-family: Arial, sans-serif; background: #f9f9f9; margin: 0; padding: 0; }
+    .header { background: #802000; color: white; padding: 12px; text-align: center; font-size: 1.4em; }
+    .container { max-width: 600px; margin: 20px auto; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 6px 20px rgba(0,0,0,0.1); }
+    label, select, input, button { display: block; width: 100%; margin-top: 10px; padding: 10px; border-radius: 8px; }
+    button { background: #802000; color: white; font-weight: bold; border: none; cursor: pointer; }
+    button:hover { background: #5a1d1d; }
+    pre { background: #fff1e7; padding: 12px; border-radius: 12px; white-space: pre-wrap; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="header">MeetSafe Console</div>
+  <div class="container">
+    <label for="rendezvousList">Select Rendezvous</label>
+    <select id="rendezvousList" onchange="loadDoc()"></select>
+
+    <label for="pinEntry">Test PIN</label>
+    <input type="text" id="pinEntry" placeholder="Enter PIN...">
+    <button onclick="simulatePin()">Run PIN Test</button>
+
+    <h3>Live JSON Output</h3>
+    <pre id="jsonOutput">Loading...</pre>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.5.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.5.2/firebase-firestore-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyAV52Ads-ckhkuGsKvHoYYTrDIqBHMHusQ",
+      authDomain: "meetsafe-clean-core.firebaseapp.com",
+      projectId: "meetsafe-clean-core",
+      storageBucket: "meetsafe-clean-core.appspot.com",
+      messagingSenderId: "970833854934",
+      appId: "1:970833854934:web:5ae847503baa2c60552477"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const rendezvousList = document.getElementById("rendezvousList");
+    const jsonOutput = document.getElementById("jsonOutput");
+    let unsub = null;
+
+    async function refreshRendezvous() {
+      const snap = await db.collection("rendezvous").get();
+      rendezvousList.innerHTML = '';
+      snap.forEach(doc => {
+        const option = document.createElement("option");
+        option.value = doc.id;
+        option.textContent = doc.id;
+        rendezvousList.appendChild(option);
+      });
+      if (snap.docs.length > 0) loadDoc();
+    }
+
+    function loadDoc() {
+      if (unsub) unsub();
+      const id = rendezvousList.value;
+      unsub = db.collection("rendezvous").doc(id).onSnapshot(doc => {
+        jsonOutput.textContent = JSON.stringify(doc.data(), null, 2);
+      });
+    }
+
+    function simulatePin() {
+      const entered = document.getElementById("pinEntry").value.trim();
+      let msg = "Entered: " + entered + "\n";
+      if (entered === "6666") msg += "🛑 ALERT PIN triggered.";
+      else if (entered === "1234") msg += "✅ Correct PIN.";
+      else msg += "⚠️ Incorrect PIN.";
+      alert(msg);
+    }
+
+    refreshRendezvous();
+  </script>
+</body>
+</html>
