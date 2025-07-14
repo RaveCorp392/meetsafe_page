@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Other Uses – MeetSafe</title>
-  <link rel="stylesheet" href="/styles.css" /> <!-- Site-wide stylesheet assumed -->
+  <link rel="stylesheet" href="/styles.css" />
   <style>
     body {
       font-family: 'Inter', sans-serif;
@@ -40,15 +40,15 @@
     }
     .use-case-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 1.5rem;
+      grid-template-columns: 1fr;
+      gap: 2rem;
       margin-top: 2rem;
     }
     .use-case {
       background: #fff7f3;
       border: 1px solid #f8d5c3;
       border-radius: 0.75rem;
-      padding: 1rem 1.25rem;
+      padding: 1.25rem 1.5rem;
       transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
     .use-case:hover {
@@ -56,13 +56,14 @@
       box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
     }
     .use-case h2 {
-      font-size: 1.1rem;
+      font-size: 1.25rem;
       color: #963b22;
-      margin-bottom: 0.25rem;
+      margin-bottom: 0.5rem;
     }
     .use-case p {
       font-size: 0.95rem;
       color: #4a2e25;
+      margin: 0.25rem 0;
     }
     .footer {
       text-align: center;
@@ -77,36 +78,56 @@
 <body>
   <div class="container">
     <header class="header">
-      <img src="/images/logo.png" alt="MeetSafe Logo" />
+      <img src="/logo.png" alt="MeetSafe Logo" />
       <h1>More Than Just Meetups</h1>
       <p class="subtitle">MeetSafe helps in any situation where timing, location, and peace of mind matter.</p>
     </header>
 
     <main class="use-case-grid">
       <section class="use-case">
-        <h2>🥾 Hiking & Trail Running</h2>
-        <p>Stay safe on the trails. Automated check-ins and off-track alerts.</p>
+        <h2>🌍 Solo Travel Abroad</h2>
+        <p><strong>Problem:</strong> Navigating new cities alone, cultural differences, and unforeseen delays can feel isolating and risky.</p>
+        <p><strong>Solution:</strong> MeetSafe uses automated check-ins and smart alerts to monitor your well-being from anywhere.</p>
+        <p><em>"Explore the world, not your worries."</em></p>
+        <p><em>"Solo journey, shared peace of mind."</em></p>
       </section>
+
       <section class="use-case">
-        <h2>⛵ Sailing & Boating</h2>
-        <p>Time-based alerts for offshore adventures — even without signal.</p>
+        <h2>💻 Remote Work in Coworking Spaces</h2>
+        <p><strong>Problem:</strong> Working late or alone in unfamiliar coworking spaces can feel vulnerable.</p>
+        <p><strong>Solution:</strong> MeetSafe's discreet check-ins ensure someone knows you're okay without interrupting your flow.</p>
+        <p><em>"New workspace, no worries."</em></p>
+        <p><em>"Your late-night grind, our quiet watch."</em></p>
       </section>
+
       <section class="use-case">
-        <h2>🏃‍♀️ Night Runs & Solo Workouts</h2>
-        <p>24/7 gym? Late run? MeetSafe is your silent spotter and safety net.</p>
+        <h2>🥾 Trail Running in National Parks</h2>
+        <p><strong>Problem:</strong> Exploring remote trails risks injury, getting lost, or losing signal.</p>
+        <p><strong>Solution:</strong> MeetSafe alerts your contacts automatically if you're overdue or off-track.</p>
+        <p><em>"Lost signal, never lost hope."</em></p>
+        <p><em>"Your wilderness escape, our remote watch."</em></p>
       </section>
+
       <section class="use-case">
-        <h2>💼 Remote Work & Solo Travel</h2>
-        <p>Peace of mind when you're off the grid or meeting someone new.</p>
+        <h2>🚉 Late-Night Public Transport</h2>
+        <p><strong>Problem:</strong> Empty stations and delays make late commutes feel risky.</p>
+        <p><strong>Solution:</strong> Timed check-ins track your safe arrival and alert your contacts if needed.</p>
+        <p><em>"Empty station? MeetSafe has your back."</em></p>
+        <p><em>"Your late-night ride, our peace of mind."</em></p>
       </section>
+
       <section class="use-case">
-        <h2>🎨 Personal Time & Hobbies</h2>
-        <p>Enjoy solo time knowing someone’s got your back if needed.</p>
+        <h2>🎥 Creator & Influencer Collaborations</h2>
+        <p><strong>Problem:</strong> Meeting new people for content collabs can be unpredictable.</p>
+        <p><strong>Solution:</strong> MeetSafe’s Stealth Mode lets you stay safe without interrupting your creative flow.</p>
+        <p><em>"Creative collaboration, secure connection."</em></p>
+        <p><em>"Building your brand? MeetSafe builds your safety net."</em></p>
       </section>
     </main>
 
     <footer class="footer">
       <p>Got a use case we haven’t listed? Let us know — we’re building MeetSafe with you in mind.</p>
+      <p><a href="/index.html">← Back to Home</a></p>
     </footer>
   </div>
 </body>
