@@ -10,48 +10,107 @@
       font-family: 'Inter', sans-serif;
       background-color: #fff6f2;
       color: #3a1e14;
-      padding: 1.5rem;
+      padding: 1rem;
+      max-width: 720px;
+      margin: auto;
     }
-    h1 {
-      font-size: 1.75rem;
-      margin-bottom: 1rem;
+    h1, h2 { text-align: center; margin-bottom: 1rem; }
+    details { margin-bottom: 1.5rem; border: 1px solid #f0c4b2; border-radius: 0.5rem; padding: 1rem; background: #fff; }
+    summary { font-weight: bold; cursor: pointer; margin-bottom: 0.5rem; }
+    label { font-weight: bold; display: block; margin-top: 1rem; }
+    input, select, textarea {
+      width: 100%; padding: 0.5rem; margin-top: 0.25rem;
+      border-radius: 0.4rem; border: 1px solid #ccc; font-size: 1rem;
     }
     button {
-      display: block;
-      width: 100%;
-      max-width: 300px;
-      margin: 0.5rem 0;
-      padding: 0.75rem;
-      background-color: #963b22;
-      color: white;
-      border: none;
-      border-radius: 0.5rem;
-      font-size: 1rem;
+      margin-top: 1.5rem; padding: 0.75rem; width: 100%;
+      background-color: #963b22; color: white;
+      font-size: 1rem; border: none; border-radius: 0.5rem; cursor: pointer;
     }
-    .status {
-      margin-top: 1rem;
-      font-weight: bold;
-      color: #63362c;
+    .json-box {
+      background: #fdf4ef;
+      border: 1px dashed #ccc;
+      padding: 1rem;
+      font-family: monospace;
+      font-size: 0.9rem;
+      white-space: pre-wrap;
+      word-break: break-word;
     }
   </style>
 </head>
 <body>
-  <h1>MeetSafe Test Console</h1>
-  <p>Use the buttons below to simulate check-in actions.</p>
+  <h1>MeetSafe Full Test Console</h1>
 
-  <button onclick="updateStatus('checkin_ok')">Check-in OK</button>
-  <button onclick="updateStatus('not_ok')">Not OK</button>
-  <button onclick="updateStatus('ok_with_pin')">OK with PIN</button>
-  <button onclick="updateStatus('pin_failed')">PIN Failed</button>
-  <button onclick="updateStatus('alert_pin')">Trigger Alert PIN</button>
+  <details open>
+    <summary>🛠️ Create Rendezvous</summary>
+    <form id="rendezvousForm">
+      <label>Contact Name</label>
+      <input type="text" name="contactName" required />
+      <label>Profile Name (Optional)</label>
+      <input type="text" name="profileName" />
+      <label>Location</label>
+      <input type="text" name="location" required />
+      <label>Notes</label>
+      <textarea name="notes"></textarea>
+      <label>Start Time</label>
+      <input type="datetime-local" name="startTime" required />
+      <label>End Time</label>
+      <input type="datetime-local" name="endTime" required />
+      <label>Check-In Type</label>
+      <select name="checkinType" id="checkinType">
+        <option value="midpoint">Midpoint</option>
+        <option value="endtime">10-min After End</option>
+        <option value="none">No Check-in</option>
+      </select>
+      <label>Stealth Mode</label>
+      <select name="stealthMode" id="stealthMode">
+        <option value="false">Normal</option>
+        <option value="true">Stealth</option>
+      </select>
+      <button type="submit">Create Rendezvous</button>
+    </form>
+  </details>
 
-  <div class="status" id="statusText">Status: waiting...</div>
+  <details>
+    <summary>📄 Rendezvous Viewer</summary>
+    <label>Select Rendezvous</label>
+    <select id="rendezvousDropdown">
+      <option value="">(Simulated) Select a rendezvous</option>
+      <option value="abc123">Sample: Park Walk</option>
+    </select>
+    <div class="json-box" id="jsonOutput">
+      {"status": "Select a rendezvous to view JSON"}
+    </div>
+  </details>
+
+  <details>
+    <summary>🚨 Alert Testing Panel</summary>
+    <button onclick="simulate('ok')">✅ OK</button>
+    <button onclick="simulate('not_ok')">🚫 Not OK</button>
+    <button onclick="simulate('ok_with_pin')">🔐 OK with PIN</button>
+    <button onclick="simulate('pin_failed')">❗ PIN Failed</button>
+  </details>
 
   <script>
-    function updateStatus(action) {
-      const display = document.getElementById('statusText');
-      display.innerText = "Status: " + action + " sent.";
-      console.log("Action sent to Firebase: " + action);
+    document.getElementById('checkinType').addEventListener('change', function () {
+      if (this.value === 'none') {
+        document.getElementById('stealthMode').value = 'true';
+        alert('Stealth mode auto-enabled for no check-in.');
+      }
+    });
+
+    document.getElementById('rendezvousForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(e.target).entries());
+      console.log("Submitting rendezvous:", data);
+      alert("Rendezvous created (simulated)");
+    });
+
+    function simulate(status) {
+      document.getElementById('jsonOutput').innerText = JSON.stringify({
+        trigger: status,
+        time: new Date().toISOString()
+      }, null, 2);
     }
   </script>
 </body>
