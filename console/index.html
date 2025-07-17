@@ -96,13 +96,15 @@
 
   <script>
     const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_PROJECT.firebaseapp.com",
-      projectId: "YOUR_PROJECT",
-      storageBucket: "YOUR_PROJECT.appspot.com",
-      messagingSenderId: "692852651509",
-      appId: "YOUR_APP_ID"
+      apiKey: "AIzaSyAV52Ads-ckhKuGsKvHoYYTrDIqBHMHusQ",
+      authDomain: "meetsafe-clean-core.firebaseapp.com",
+      projectId: "meetsafe-clean-core",
+      storageBucket: "meetsafe-clean-core.firebasestorage.app",
+      messagingSenderId: "970833854934",
+      appId: "1:970833854934:web:5ae847503baa2c6c552477",
+      measurementId: "G-E6LBFE2SEB"
     };
+
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
@@ -130,7 +132,7 @@
     function simulateCheckin() {
       const type = document.getElementById('checkinSimType').value;
       alert("Simulated check-in: " + type);
-      // You can extend this to actually update Firestore with simulated status if needed.
+      // Extend with Firestore status simulation if needed
     }
   </script>
 </body>
