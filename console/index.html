@@ -4,77 +4,109 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MeetSafe Test Console</title>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; margin: 2rem; background: #f9f9f9; }
-    label { display: block; margin-top: 1rem; font-weight: bold; }
-    input, select, textarea { width: 100%; padding: 0.5rem; margin-top: 0.3rem; }
-    button { margin-top: 1rem; padding: 0.7rem 1.2rem; font-size: 1rem; }
-    .section { background: white; padding: 1rem; margin-bottom: 2rem; border-radius: 6px; box-shadow: 0 0 10px rgba(0,0,0,0.05); }
-    .rendezvous-card { padding: 1rem; border: 1px solid #ccc; margin-top: 1rem; border-radius: 6px; background: #fff; }
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      background: #f8f4f1;
+      color: #333;
+    }
+    h2 {
+      margin-top: 30px;
+    }
+    label {
+      display: block;
+      margin: 10px 0 5px;
+    }
+    input, select, textarea, button {
+      padding: 8px;
+      width: 100%;
+      max-width: 400px;
+      box-sizing: border-box;
+      margin-bottom: 10px;
+    }
+    button {
+      background: #963b22;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    .panel {
+      background: white;
+      padding: 15px;
+      margin-top: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.1);
+    }
   </style>
 </head>
 <body>
-  <div class="section">
-    <h2>Create Rendezvous</h2>
-    <label for="contactName">Contact Name</label>
+  <h1>MeetSafe Test Console</h1>
+
+  <div class="panel">
+    <h2>Create / Edit Rendezvous</h2>
+    <label>Contact Name</label>
     <input type="text" id="contactName" />
 
-    <label for="profileName">Tinder Profile Name</label>
+    <label>Profile Name</label>
     <input type="text" id="profileName" />
 
-    <label for="location">Location</label>
+    <label>Location</label>
     <input type="text" id="location" />
 
-    <label for="notes">Notes</label>
+    <label>Notes</label>
     <textarea id="notes"></textarea>
 
-    <label for="startTime">Start Time</label>
+    <label>Start Time</label>
     <input type="datetime-local" id="startTime" />
 
-    <label for="endTime">End Time</label>
+    <label>End Time</label>
     <input type="datetime-local" id="endTime" />
 
-    <label for="checkinType">Check-in Type</label>
+    <label>Check-in Type</label>
     <select id="checkinType">
-      <option value="none">No check-in</option>
-      <option value="10min">10-minute check-in</option>
-      <option value="midpoint">Midpoint check-in</option>
+      <option value="none">No Check-In</option>
+      <option value="10min">10 Minute Check-In</option>
+      <option value="midpoint">Midpoint Check-In</option>
     </select>
 
-    <label for="mode">Mode</label>
+    <label>Mode</label>
     <select id="mode">
       <option value="normal">Normal</option>
       <option value="stealth">Stealth</option>
     </select>
 
-    <button onclick="createRendezvous()">Create Rendezvous</button>
+    <button onclick="createOrUpdateRendezvous()">Save Rendezvous</button>
   </div>
 
-  <div class="section">
-    <h2>Simulate Alert PIN</h2>
-    <button onclick="triggerAlert('not_ok')">Not OK</button>
-    <button onclick="triggerAlert('ok_with_pin')">OK with PIN</button>
-    <button onclick="triggerAlert('pin_failed')">PIN Failed</button>
-    <p style="margin-top: 0.5rem; font-style: italic;">Simulates user safety signals</p>
-  </div>
-
-  <div class="section">
-    <h2>Saved Rendezvous</h2>
-    <div id="rendezvousList"></div>
+  <div class="panel">
+    <h2>Simulate Check-In</h2>
+    <label>Select Check-In Type</label>
+    <select id="checkinSimType">
+      <option value="ok">OK</option>
+      <option value="ok_with_pin">OK with PIN</option>
+      <option value="not_ok">Not OK</option>
+      <option value="pin_fail">PIN Failed</option>
+      <option value="alert_pin">Alert PIN</option>
+    </select>
+    <button onclick="simulateCheckin()">Simulate</button>
   </div>
 
   <script>
     const firebaseConfig = {
       apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-      projectId: "YOUR_PROJECT_ID",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      projectId: "YOUR_PROJECT",
+      storageBucket: "YOUR_PROJECT.appspot.com",
+      messagingSenderId: "692852651509",
+      appId: "YOUR_APP_ID"
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    async function createRendezvous() {
+    async function createOrUpdateRendezvous() {
       const data = {
         contactName: document.getElementById('contactName').value,
         profileName: document.getElementById('profileName').value,
@@ -84,42 +116,22 @@
         endTime: document.getElementById('endTime').value,
         checkinType: document.getElementById('checkinType').value,
         mode: document.getElementById('mode').value,
-        createdAt: new Date().toISOString()
+        status: 'scheduled',
+        timestamp: new Date().toISOString()
       };
-
-      if (data.checkinType === 'none') data.mode = 'stealth';
-      await db.collection('rendezvous').add(data);
-      alert("Rendezvous created!");
-      loadRendezvous();
+      try {
+        await db.collection("rendezvous").add(data);
+        alert("Rendezvous saved to Firestore.");
+      } catch (e) {
+        alert("Error saving rendezvous: " + e.message);
+      }
     }
 
-    async function loadRendezvous() {
-      const snapshot = await db.collection('rendezvous').orderBy('createdAt', 'desc').get();
-      const container = document.getElementById('rendezvousList');
-      container.innerHTML = '';
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        const div = document.createElement('div');
-        div.className = 'rendezvous-card';
-        div.innerHTML = `
-          <strong>${data.contactName}</strong> (${data.profileName})<br>
-          Location: ${data.location}<br>
-          Start: ${data.startTime}<br>
-          End: ${data.endTime}<br>
-          Mode: ${data.mode}, Check-in: ${data.checkinType}<br>
-          Notes: ${data.notes}
-        `;
-        container.appendChild(div);
-      });
+    function simulateCheckin() {
+      const type = document.getElementById('checkinSimType').value;
+      alert("Simulated check-in: " + type);
+      // You can extend this to actually update Firestore with simulated status if needed.
     }
-
-    function triggerAlert(type) {
-      console.log(`Simulated Alert: ${type}`);
-      alert(`Simulated: ${type}`);
-      // Extend this to actually update Firestore if needed
-    }
-
-    loadRendezvous();
   </script>
 </body>
 </html>
