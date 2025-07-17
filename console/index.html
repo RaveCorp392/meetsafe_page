@@ -1,127 +1,125 @@
-
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MeetSafe Test Console (Live)</title>
-  <script src="https://www.gstatic.com/firebasejs/9.6.11/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.11/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.11/firebase-firestore-compat.js"></script>
+  <title>MeetSafe Test Console</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
   <style>
-    body {
-      font-family: 'Inter', sans-serif;
-      background: #fff6f2;
-      padding: 1rem;
-      max-width: 720px;
-      margin: auto;
-    }
-    h1 { text-align: center; }
-    label { display: block; margin-top: 1rem; }
-    input, select, textarea {
-      width: 100%; padding: 0.5rem; margin-top: 0.25rem;
-    }
-    button {
-      margin-top: 1rem; padding: 0.6rem;
-      background: #963b22; color: white; border: none;
-      width: 100%; font-size: 1rem;
-    }
-    pre {
-      background: #fdf4ef;
-      padding: 1rem;
-      border-radius: 0.5rem;
-      font-size: 0.9rem;
-      overflow-x: auto;
-    }
+    body { font-family: Arial, sans-serif; margin: 2rem; background: #f9f9f9; }
+    label { display: block; margin-top: 1rem; font-weight: bold; }
+    input, select, textarea { width: 100%; padding: 0.5rem; margin-top: 0.3rem; }
+    button { margin-top: 1rem; padding: 0.7rem 1.2rem; font-size: 1rem; }
+    .section { background: white; padding: 1rem; margin-bottom: 2rem; border-radius: 6px; box-shadow: 0 0 10px rgba(0,0,0,0.05); }
+    .rendezvous-card { padding: 1rem; border: 1px solid #ccc; margin-top: 1rem; border-radius: 6px; background: #fff; }
   </style>
 </head>
 <body>
-  <h1>MeetSafe Live Test Console</h1>
+  <div class="section">
+    <h2>Create Rendezvous</h2>
+    <label for="contactName">Contact Name</label>
+    <input type="text" id="contactName" />
 
-  <div>
-    <label>Contact Name</label>
-    <input id="contactName" />
-    <label>Location</label>
-    <input id="location" />
-    <label>Start Time</label>
+    <label for="profileName">Tinder Profile Name</label>
+    <input type="text" id="profileName" />
+
+    <label for="location">Location</label>
+    <input type="text" id="location" />
+
+    <label for="notes">Notes</label>
+    <textarea id="notes"></textarea>
+
+    <label for="startTime">Start Time</label>
     <input type="datetime-local" id="startTime" />
-    <label>End Time</label>
+
+    <label for="endTime">End Time</label>
     <input type="datetime-local" id="endTime" />
-    <label>Check-in Type</label>
+
+    <label for="checkinType">Check-in Type</label>
     <select id="checkinType">
-      <option value="midpoint">Midpoint</option>
-      <option value="endtime">10-min After Start</option>
-      <option value="none">No Check-in</option>
+      <option value="none">No check-in</option>
+      <option value="10min">10-minute check-in</option>
+      <option value="midpoint">Midpoint check-in</option>
     </select>
-    <label>Stealth Mode</label>
-    <select id="stealthMode">
-      <option value="false">Normal</option>
-      <option value="true">Stealth</option>
+
+    <label for="mode">Mode</label>
+    <select id="mode">
+      <option value="normal">Normal</option>
+      <option value="stealth">Stealth</option>
     </select>
-    <button onclick="submitRendezvous()">Submit Rendezvous</button>
+
+    <button onclick="createRendezvous()">Create Rendezvous</button>
   </div>
 
-  <hr />
+  <div class="section">
+    <h2>Simulate Alert PIN</h2>
+    <button onclick="triggerAlert('not_ok')">Not OK</button>
+    <button onclick="triggerAlert('ok_with_pin')">OK with PIN</button>
+    <button onclick="triggerAlert('pin_failed')">PIN Failed</button>
+    <p style="margin-top: 0.5rem; font-style: italic;">Simulates user safety signals</p>
+  </div>
 
-  <div>
-    <label>View Rendezvous</label>
-    <select id="rendezvousList" onchange="loadRendezvousJSON()">
-      <option value="">Select...</option>
-    </select>
-    <pre id="jsonView">Select a rendezvous to view JSON</pre>
+  <div class="section">
+    <h2>Saved Rendezvous</h2>
+    <div id="rendezvousList"></div>
   </div>
 
   <script>
     const firebaseConfig = {
-      apiKey: "AIzaSyCNK-h0SfZxWkTPpsfO9cyu7TjCNheGyXQ",
-      authDomain: "meetsafe-clean-core.firebaseapp.com",
-      projectId: "meetsafe-clean-core"
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
     };
-
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    firebase.auth().signInAnonymously().then(() => {
-      console.log("Signed in anonymously");
-      loadRendezvousList();
-    });
-
-    function submitRendezvous() {
-      const doc = {
+    async function createRendezvous() {
+      const data = {
         contactName: document.getElementById('contactName').value,
+        profileName: document.getElementById('profileName').value,
         location: document.getElementById('location').value,
+        notes: document.getElementById('notes').value,
         startTime: document.getElementById('startTime').value,
         endTime: document.getElementById('endTime').value,
         checkinType: document.getElementById('checkinType').value,
-        stealthMode: document.getElementById('stealthMode').value === "true",
+        mode: document.getElementById('mode').value,
         createdAt: new Date().toISOString()
       };
-      db.collection("rendezvous").add(doc).then((ref) => {
-        alert("Rendezvous created: " + ref.id);
-        loadRendezvousList();
+
+      if (data.checkinType === 'none') data.mode = 'stealth';
+      await db.collection('rendezvous').add(data);
+      alert("Rendezvous created!");
+      loadRendezvous();
+    }
+
+    async function loadRendezvous() {
+      const snapshot = await db.collection('rendezvous').orderBy('createdAt', 'desc').get();
+      const container = document.getElementById('rendezvousList');
+      container.innerHTML = '';
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        const div = document.createElement('div');
+        div.className = 'rendezvous-card';
+        div.innerHTML = `
+          <strong>${data.contactName}</strong> (${data.profileName})<br>
+          Location: ${data.location}<br>
+          Start: ${data.startTime}<br>
+          End: ${data.endTime}<br>
+          Mode: ${data.mode}, Check-in: ${data.checkinType}<br>
+          Notes: ${data.notes}
+        `;
+        container.appendChild(div);
       });
     }
 
-    function loadRendezvousList() {
-      const dropdown = document.getElementById("rendezvousList");
-      dropdown.innerHTML = '<option value="">Select...</option>';
-      db.collection("rendezvous").orderBy("createdAt", "desc").limit(10).get().then(snapshot => {
-        snapshot.forEach(doc => {
-          const opt = document.createElement("option");
-          opt.value = doc.id;
-          opt.text = `${doc.data().contactName || "(no name)"} – ${doc.id}`;
-          dropdown.appendChild(opt);
-        });
-      });
+    function triggerAlert(type) {
+      console.log(`Simulated Alert: ${type}`);
+      alert(`Simulated: ${type}`);
+      // Extend this to actually update Firestore if needed
     }
 
-    function loadRendezvousJSON() {
-      const id = document.getElementById("rendezvousList").value;
-      if (!id) return;
-      db.collection("rendezvous").doc(id).get().then(doc => {
-        document.getElementById("jsonView").innerText = JSON.stringify(doc.data(), null, 2);
-      });
-    }
+    loadRendezvous();
   </script>
 </body>
 </html>
