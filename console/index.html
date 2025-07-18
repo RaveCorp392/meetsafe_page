@@ -166,6 +166,32 @@
             app = initializeApp(firebaseConfig);
             db = getFirestore(app);
             auth = getAuth(app);
+
+            // Authenticate user and set up Firestore listener ONLY AFTER Firebase is initialized
+            onAuthStateChanged(auth, async (user) => {
+              if (user) {
+                // User is signed in.
+                currentUserId = user.uid;
+                document.getElementById('userIdDisplay').textContent = `User ID: ${currentUserId}`;
+                rendezvousCollectionRef = collection(db, `artifacts/${appId}/users/${currentUserId}/rendezvous`);
+                showMessage("Signed in successfully!", false);
+                loadRendezvous(); // Load rendezvous after successful authentication
+              } else {
+                // User is signed out.
+                document.getElementById('userIdDisplay').textContent = 'Not signed in. Attempting anonymous sign-in...';
+                try {
+                  if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                  } else {
+                    await signInAnonymously(auth);
+                  }
+                } catch (error) {
+                  showMessage(`Authentication error: ${error.message}`, true);
+                  console.error("Authentication Error:", error);
+                }
+              }
+            });
+
         } catch (e) {
             console.error("Error initializing Firebase app:", e);
             showMessage("Firebase app failed to initialize. Check config and console.", true);
@@ -173,6 +199,8 @@
     } else {
         console.error("Firebase app not initialized: Missing or invalid configuration.");
         showMessage("Firebase app could not be initialized. Configuration missing or invalid.", true);
+        // Ensure userIdDisplay is updated even if Firebase init fails
+        document.getElementById('userIdDisplay').textContent = 'Firebase not initialized. Cannot load user.';
     }
 
 
@@ -191,31 +219,6 @@
         messageBox.className = ''; // Hide after 3 seconds
       }, 3000);
     }
-
-    // Authenticate user and set up Firestore listener
-    onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        // User is signed in.
-        currentUserId = user.uid;
-        document.getElementById('userIdDisplay').textContent = `User ID: ${currentUserId}`;
-        rendezvousCollectionRef = collection(db, `artifacts/${appId}/users/${currentUserId}/rendezvous`);
-        showMessage("Signed in successfully!", false);
-        loadRendezvous(); // Load rendezvous after successful authentication
-      } else {
-        // User is signed out.
-        document.getElementById('userIdDisplay').textContent = 'Not signed in. Attempting anonymous sign-in...';
-        try {
-          if (initialAuthToken) {
-            await signInWithCustomToken(auth, initialAuthToken);
-          } else {
-            await signInAnonymously(auth);
-          }
-        } catch (error) {
-          showMessage(`Authentication error: ${error.message}`, true);
-          console.error("Authentication Error:", error);
-        }
-      }
-    });
 
     /**
      * Clears all input fields in the Create/Edit Rendezvous form.
@@ -239,7 +242,7 @@
      */
     function loadRendezvous() {
       if (!rendezvousCollectionRef) {
-        console.warn("Rendezvous collection reference not initialized.");
+        console.warn("Rendezvous collection reference not initialized. Cannot load rendezvous.");
         return;
       }
 
@@ -464,8 +467,8 @@
         monitoringInterval = null;
         currentMonitoredRendezvous = null;
         document.getElementById('monitoringStatus').innerText = 'Monitoring stopped.';
-        showMessage('Monitoring stopped.', false);
       }
+      showMessage('Monitoring stopped.', false);
     }
 
     /**
