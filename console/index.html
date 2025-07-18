@@ -47,6 +47,12 @@
 
   <div class="panel">
     <h2>Create / Edit Rendezvous</h2>
+
+    <label>Select Existing Rendezvous (optional)</label>
+    <select id="rendezvousSelector" onchange="loadRendezvous()">
+      <option value="">-- New Rendezvous --</option>
+    </select>
+
     <label>Contact Name</label>
     <input type="text" id="contactName" />
 
@@ -108,6 +114,36 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
+    let selectedRendezvousId = null;
+
+    async function loadRendezvousOptions() {
+      const snapshot = await db.collection("rendezvous").get();
+      const selector = document.getElementById('rendezvousSelector');
+      snapshot.forEach(doc => {
+        const option = document.createElement("option");
+        option.value = doc.id;
+        option.text = `${doc.data().profileName || 'Unnamed'} (${doc.id})`;
+        selector.appendChild(option);
+      });
+    }
+
+    async function loadRendezvous() {
+      const id = document.getElementById('rendezvousSelector').value;
+      if (!id) return;
+      const doc = await db.collection("rendezvous").doc(id).get();
+      if (!doc.exists) return;
+      const data = doc.data();
+      selectedRendezvousId = id;
+      document.getElementById('contactName').value = data.contactName || "";
+      document.getElementById('profileName').value = data.profileName || "";
+      document.getElementById('location').value = data.location || "";
+      document.getElementById('notes').value = data.notes || "";
+      document.getElementById('startTime').value = data.startTime || "";
+      document.getElementById('endTime').value = data.endTime || "";
+      document.getElementById('checkinType').value = data.checkinType || "none";
+      document.getElementById('mode').value = data.mode || "normal";
+    }
+
     async function createOrUpdateRendezvous() {
       const data = {
         contactName: document.getElementById('contactName').value,
@@ -121,9 +157,16 @@
         status: 'scheduled',
         timestamp: new Date().toISOString()
       };
+
       try {
-        await db.collection("rendezvous").add(data);
-        alert("Rendezvous saved to Firestore.");
+        if (selectedRendezvousId) {
+          await db.collection("rendezvous").doc(selectedRendezvousId).update(data);
+          alert("Rendezvous updated.");
+        } else {
+          await db.collection("rendezvous").add(data);
+          alert("Rendezvous created.");
+          window.location.reload();
+        }
       } catch (e) {
         alert("Error saving rendezvous: " + e.message);
       }
@@ -132,8 +175,9 @@
     function simulateCheckin() {
       const type = document.getElementById('checkinSimType').value;
       alert("Simulated check-in: " + type);
-      // Extend with Firestore status simulation if needed
     }
+
+    window.onload = loadRendezvousOptions;
   </script>
 </body>
 </html>
