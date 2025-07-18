@@ -146,16 +146,29 @@
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
     
     let firebaseConfig = {};
+    // Check if __firebase_config is provided by the environment.
+    // If not, use the hardcoded configuration.
     try {
       if (typeof __firebase_config === 'string' && __firebase_config.trim() !== '') {
         firebaseConfig = JSON.parse(__firebase_config);
       } else {
-        console.warn("Firebase config (__firebase_config) is undefined or empty string. Using default empty config.");
+        console.warn("Firebase config (__firebase_config) is undefined or empty string. Using hardcoded config.");
+        // Manually paste your Firebase project's config here.
+        // Go to your Firebase project settings -> "General" tab -> "Your apps" section.
+        // Copy the "Firebase SDK snippet" (Config) and paste it below.
+        firebaseConfig = {
+          apiKey: "AIzaSyAV52Ads-ckhKuGsKvHoYYTrDIqBHMHusQ",
+          authDomain: "meetsafe-clean-core.firebaseapp.com",
+          projectId: "meetsafe-clean-core",
+          storageBucket: "meetsafe-clean-core.firebasestorage.app",
+          messagingSenderId: "970833854934",
+          appId: "1:970833854934:web:5ae847503baa2c6c552477",
+          measurementId: "G-E6LBFE2SEB"
+        };
       }
     } catch (e) {
       console.error("Error parsing Firebase config:", e);
       showMessage("Error parsing Firebase configuration. Check console.", true);
-      // firebaseConfig will remain {} here
     }
 
     const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
@@ -447,7 +460,7 @@
               showMessage(`Rendezvous "${currentMonitoredRendezvous.contactName}" status updated to NOT OK due to deviation!`, true);
               currentMonitoredRendezvous.status = 'not_ok'; // Update local state immediately
             } catch (error) {
-              showMessage(`Error updating status: ${error.message}`, true);
+              showMessage(`Error updating status: ${e.message}`, true);
               console.error("Error updating rendezvous status:", error);
             }
           }
