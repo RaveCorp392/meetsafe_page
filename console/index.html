@@ -4,147 +4,300 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MeetSafe Test Console</title>
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+  <!-- Tailwind CSS for modern styling -->
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    body {
-      font-family: sans-serif;
-      padding: 20px;
-      background: #f8f4f1;
-      color: #333;
-    }
-    h2 {
-      margin-top: 30px;
-    }
-    label {
-      display: block;
-      margin: 10px 0 5px;
-    }
-    input, select, textarea, button {
-      padding: 8px;
-      width: 100%;
-      max-width: 400px;
-      box-sizing: border-box;
-      margin-bottom: 10px;
-    }
-    button {
-      background: #963b22;
+    /* Custom styles for the message box */
+    #messageBox {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #333;
       color: white;
-      border: none;
-      cursor: pointer;
+      padding: 10px 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      z-index: 1000;
+      opacity: 0;
+      transition: opacity 0.3s ease-in-out;
     }
-    .panel {
-      background: white;
-      padding: 15px;
-      margin-top: 20px;
-      border-radius: 10px;
-      box-shadow: 0 0 5px rgba(0,0,0,0.1);
+    #messageBox.show {
+      opacity: 1;
+    }
+    .json-box {
+      background: #fdf4ef;
+      border: 1px dashed #ccc;
+      padding: 1rem;
+      font-family: monospace;
+      font-size: 0.9rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      border-radius: 0.5rem;
+      margin-top: 1rem;
     }
   </style>
 </head>
-<body>
-  <h1>MeetSafe Test Console</h1>
+<body class="font-sans bg-f8f4f1 text-gray-800 p-5">
+  <h1 class="text-3xl font-bold mb-6 text-center">MeetSafe Test Console</h1>
 
-  <div class="panel">
-    <h2>Create / Edit Rendezvous</h2>
+  <!-- User ID Display -->
+  <div class="panel bg-white p-4 rounded-xl shadow-md mb-6 max-w-2xl mx-auto">
+    <h2 class="text-xl font-semibold mb-3">Current User</h2>
+    <p id="userIdDisplay" class="text-gray-600">Loading user...</p>
+  </div>
 
-    <label>Select Existing Rendezvous (optional)</label>
-    <select id="rendezvousSelector" onchange="loadRendezvous()">
-      <option value="">-- New Rendezvous --</option>
-    </select>
+  <!-- Create / Edit Rendezvous Section -->
+  <div class="panel bg-white p-4 rounded-xl shadow-md mb-6 max-w-2xl mx-auto">
+    <h2 class="text-xl font-semibold mb-3">Create / Edit Rendezvous</h2>
+    <input type="hidden" id="rendezvousDocId" value="" /> <!-- Hidden input for editing -->
 
-    <label>Contact Name</label>
-    <input type="text" id="contactName" />
+    <label for="contactName" class="block text-sm font-medium text-gray-700 mb-1">Contact Name</label>
+    <input type="text" id="contactName" class="p-2 w-full max-w-md border border-gray-300 rounded-md mb-3 focus:ring-2 focus:ring-orange-300 focus:border-transparent" />
 
-    <label>Profile Name</label>
-    <input type="text" id="profileName" />
+    <label for="profileName" class="block text-sm font-medium text-gray-700 mb-1">Profile Name</label>
+    <input type="text" id="profileName" class="p-2 w-full max-w-md border border-gray-300 rounded-md mb-3 focus:ring-2 focus:ring-orange-300 focus:border-transparent" />
 
-    <label>Location</label>
-    <input type="text" id="location" />
+    <label for="location" class="block text-sm font-medium text-gray-700 mb-1">Location</label>
+    <input type="text" id="location" value="100 O'Halloran Rd Victoria Point" class="p-2 w-full max-w-md border border-gray-300 rounded-md mb-3 focus:ring-2 focus:ring-orange-300 focus:border-transparent" />
 
-    <label>Notes</label>
-    <textarea id="notes"></textarea>
+    <label for="notes" class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+    <textarea id="notes" class="p-2 w-full max-w-md border border-gray-300 rounded-md mb-3 focus:ring-2 focus:ring-orange-300 focus:border-transparent"></textarea>
 
-    <label>Start Time</label>
-    <input type="datetime-local" id="startTime" />
+    <label for="startTime" class="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+    <input type="datetime-local" id="startTime" class="p-2 w-full max-w-md border border-gray-300 rounded-md mb-3 focus:ring-2 focus:ring-orange-300 focus:border-transparent" />
 
-    <label>End Time</label>
-    <input type="datetime-local" id="endTime" />
+    <label for="endTime" class="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+    <input type="datetime-local" id="endTime" class="p-2 w-full max-w-md border border-gray-300 rounded-md mb-3 focus:ring-2 focus:ring-orange-300 focus:border-transparent" />
 
-    <label>Check-in Type</label>
-    <select id="checkinType">
+    <label for="checkinType" class="block text-sm font-medium text-gray-700 mb-1">Check-in Type</label>
+    <select id="checkinType" class="p-2 w-full max-w-md border border-gray-300 rounded-md mb-3 focus:ring-2 focus:ring-orange-300 focus:border-transparent">
       <option value="none">No Check-In</option>
       <option value="10min">10 Minute Check-In</option>
       <option value="midpoint">Midpoint Check-In</option>
     </select>
 
-    <label>Mode</label>
-    <select id="mode">
+    <label for="mode" class="block text-sm font-medium text-gray-700 mb-1">Mode</label>
+    <select id="mode" class="p-2 w-full max-w-md border border-gray-300 rounded-md mb-3 focus:ring-2 focus:ring-orange-300 focus:border-transparent">
       <option value="normal">Normal</option>
       <option value="stealth">Stealth</option>
     </select>
 
-    <button onclick="createOrUpdateRendezvous()">Save Rendezvous</button>
+    <button onclick="createOrUpdateRendezvous()" class="bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded-md shadow-md transition duration-300 ease-in-out w-full max-w-md">Save Rendezvous</button>
+    <button onclick="clearForm()" class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-md shadow-md transition duration-300 ease-in-out w-full max-w-md mt-2">Clear Form</button>
   </div>
 
-  <div class="panel">
-    <h2>Simulate Check-In</h2>
-    <label>Select Check-In Type</label>
-    <select id="checkinSimType">
+  <!-- Rendezvous Viewer Section -->
+  <div class="panel bg-white p-4 rounded-xl shadow-md mb-6 max-w-2xl mx-auto">
+    <h2 class="text-xl font-semibold mb-3">View / Select Rendezvous</h2>
+    <label for="rendezvousSelect" class="block text-sm font-medium text-gray-700 mb-1">Select Rendezvous</label>
+    <select id="rendezvousSelect" class="p-2 w-full max-w-md border border-gray-300 rounded-md mb-3 focus:ring-2 focus:ring-orange-300 focus:border-transparent" onchange="loadSelectedRendezvous()">
+      <option value="">-- Select a Rendezvous --</option>
+    </select>
+    <button onclick="deleteSelectedRendezvous()" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md shadow-md transition duration-300 ease-in-out w-full max-w-md mt-2">Delete Selected</button>
+    <div class="json-box" id="selectedRendezvousDetails">
+      Select a rendezvous to view details.
+    </div>
+  </div>
+
+  <!-- Monitor Rendezvous Section -->
+  <div class="panel bg-white p-4 rounded-xl shadow-md mb-6 max-w-2xl mx-auto">
+    <h2 class="text-xl font-semibold mb-3">Monitor Rendezvous for Deviations</h2>
+    <label for="monitorRendezvousSelect" class="block text-sm font-medium text-gray-700 mb-1">Rendezvous to Monitor</label>
+    <select id="monitorRendezvousSelect" class="p-2 w-full max-w-md border border-gray-300 rounded-md mb-3 focus:ring-2 focus:ring-orange-300 focus:border-transparent">
+      <option value="">-- Select a Rendezvous --</option>
+    </select>
+
+    <label for="simulatedLocation" class="block text-sm font-medium text-gray-700 mb-1">Simulated Current Location</label>
+    <input type="text" id="simulatedLocation" placeholder="e.g., Park, Cafe, Home" class="p-2 w-full max-w-md border border-gray-300 rounded-md mb-3 focus:ring-2 focus:ring-orange-300 focus:border-transparent" />
+
+    <button onclick="startMonitoring()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md shadow-md transition duration-300 ease-in-out w-full max-w-md">Start Monitoring</button>
+    <button onclick="stopMonitoring()" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-md shadow-md transition duration-300 ease-in-out w-full max-w-md mt-2">Stop Monitoring</button>
+
+    <div class="json-box" id="monitoringStatus">
+      Monitoring not active.
+    </div>
+  </div>
+
+  <!-- Simulate Check-In Section -->
+  <div class="panel bg-white p-4 rounded-xl shadow-md mb-6 max-w-2xl mx-auto">
+    <h2 class="text-xl font-semibold mb-3">Simulate Manual Check-In</h2>
+    <label for="checkinSimType" class="block text-sm font-medium text-gray-700 mb-1">Select Check-In Type</label>
+    <select id="checkinSimType" class="p-2 w-full max-w-md border border-gray-300 rounded-md mb-3 focus:ring-2 focus:ring-orange-300 focus:border-transparent">
       <option value="ok">OK</option>
       <option value="ok_with_pin">OK with PIN</option>
       <option value="not_ok">Not OK</option>
       <option value="pin_failed">PIN Failed (3 Attempts)</option>
       <option value="alert_pin">Alert PIN (Deliberate)</option>
     </select>
-    <button onclick="simulateCheckin()">Simulate</button>
+    <button onclick="simulateCheckin()" class="bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded-md shadow-md transition duration-300 ease-in-out w-full max-w-md">Simulate</button>
   </div>
 
-  <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyAV52Ads-ckhKuGsKvHoYYTrDIqBHMHusQ",
-      authDomain: "meetsafe-clean-core.firebaseapp.com",
-      projectId: "meetsafe-clean-core",
-      storageBucket: "meetsafe-clean-core.firebasestorage.app",
-      messagingSenderId: "970833854934",
-      appId: "1:970833854934:web:5ae847503baa2c6c552477",
-      measurementId: "G-E6LBFE2SEB"
-    };
+  <!-- Message Box -->
+  <div id="messageBox"></div>
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
+  <script type="module">
+    // Import the functions you need from the Firebase SDKs
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getFirestore, collection, addDoc, doc, setDoc, getDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    let selectedRendezvousId = null;
+    // Global variables for Canvas environment
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-    async function loadRendezvousOptions() {
-      const snapshot = await db.collection("rendezvous").get();
-      const selector = document.getElementById('rendezvousSelector');
-      snapshot.forEach(doc => {
-        const option = document.createElement("option");
-        option.value = doc.id;
-        option.text = `${doc.data().profileName || 'Unnamed'} (${doc.id})`;
-        selector.appendChild(option);
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    let currentUserId = null; // To store the authenticated user ID
+    let rendezvousCollectionRef = null; // Reference to the user's rendezvous collection
+
+    let monitoringInterval = null; // Stores the interval ID for deviation checks
+    let currentMonitoredRendezvous = null; // Stores the data of the currently monitored rendezvous
+
+    // Function to display messages
+    function showMessage(message, isError = false) {
+      const messageBox = document.getElementById('messageBox');
+      messageBox.textContent = message;
+      messageBox.className = 'show ' + (isError ? 'bg-red-600' : 'bg-green-600');
+      setTimeout(() => {
+        messageBox.className = ''; // Hide after 3 seconds
+      }, 3000);
+    }
+
+    // Authenticate user and set up Firestore listener
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        // User is signed in.
+        currentUserId = user.uid;
+        document.getElementById('userIdDisplay').textContent = `User ID: ${currentUserId}`;
+        rendezvousCollectionRef = collection(db, `artifacts/${appId}/users/${currentUserId}/rendezvous`);
+        showMessage("Signed in successfully!", false);
+        loadRendezvous(); // Load rendezvous after successful authentication
+      } else {
+        // User is signed out.
+        document.getElementById('userIdDisplay').textContent = 'Not signed in. Attempting anonymous sign-in...';
+        try {
+          if (initialAuthToken) {
+            await signInWithCustomToken(auth, initialAuthToken);
+          } else {
+            await signInAnonymously(auth);
+          }
+        } catch (error) {
+          showMessage(`Authentication error: ${error.message}`, true);
+          console.error("Authentication Error:", error);
+        }
+      }
+    });
+
+    /**
+     * Clears all input fields in the Create/Edit Rendezvous form.
+     */
+    function clearForm() {
+      document.getElementById('rendezvousDocId').value = '';
+      document.getElementById('contactName').value = '';
+      document.getElementById('profileName').value = '';
+      document.getElementById('location').value = '100 O\'Halloran Rd Victoria Point'; // Set default location
+      document.getElementById('notes').value = '';
+      document.getElementById('startTime').value = '';
+      document.getElementById('endTime').value = '';
+      document.getElementById('checkinType').value = 'none';
+      document.getElementById('mode').value = 'normal';
+      showMessage('Form cleared.', false);
+    }
+
+    /**
+     * Loads all rendezvous for the current user and populates the dropdowns.
+     * Uses onSnapshot for real-time updates.
+     */
+    function loadRendezvous() {
+      if (!rendezvousCollectionRef) {
+        console.warn("Rendezvous collection reference not initialized.");
+        return;
+      }
+
+      onSnapshot(rendezvousCollectionRef, (snapshot) => {
+        const rendezvousSelect = document.getElementById('rendezvousSelect');
+        const monitorRendezvousSelect = document.getElementById('monitorRendezvousSelect');
+
+        // Clear existing options, but keep the default "Select" option
+        rendezvousSelect.innerHTML = '<option value="">-- Select a Rendezvous --</option>';
+        monitorRendezvousSelect.innerHTML = '<option value="">-- Select a Rendezvous --</option>';
+
+        snapshot.docs.forEach(doc => {
+          const data = doc.data();
+          const option = document.createElement('option');
+          option.value = doc.id;
+          option.textContent = `${data.contactName} - ${data.location} (${data.status})`;
+          rendezvousSelect.appendChild(option);
+
+          const monitorOption = option.cloneNode(true);
+          monitorRendezvousSelect.appendChild(monitorOption);
+        });
+        showMessage('Rendezvous list updated.', false);
+      }, (error) => {
+        showMessage(`Error loading rendezvous: ${error.message}`, true);
+        console.error("Error loading rendezvous:", error);
       });
     }
 
-    async function loadRendezvous() {
-      const id = document.getElementById('rendezvousSelector').value;
-      if (!id) return;
-      const doc = await db.collection("rendezvous").doc(id).get();
-      if (!doc.exists) return;
-      const data = doc.data();
-      selectedRendezvousId = id;
-      document.getElementById('contactName').value = data.contactName || "";
-      document.getElementById('profileName').value = data.profileName || "";
-      document.getElementById('location').value = data.location || "";
-      document.getElementById('notes').value = data.notes || "";
-      document.getElementById('startTime').value = data.startTime || "";
-      document.getElementById('endTime').value = data.endTime || "";
-      document.getElementById('checkinType').value = data.checkinType || "none";
-      document.getElementById('mode').value = data.mode || "normal";
+    /**
+     * Loads the details of the selected rendezvous into the form for editing
+     * and displays its JSON in the viewer.
+     */
+    async function loadSelectedRendezvous() {
+      const selectedId = document.getElementById('rendezvousSelect').value;
+      const detailsBox = document.getElementById('selectedRendezvousDetails');
+
+      if (!selectedId) {
+        detailsBox.innerText = 'Select a rendezvous to view details.';
+        clearForm(); // Clear form if no rendezvous is selected
+        return;
+      }
+
+      try {
+        const docRef = doc(rendezvousCollectionRef, selectedId);
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          document.getElementById('rendezvousDocId').value = docSnap.id;
+          document.getElementById('contactName').value = data.contactName || '';
+          document.getElementById('profileName').value = data.profileName || '';
+          document.getElementById('location').value = data.location || ''; // Load actual location
+          document.getElementById('notes').value = data.notes || '';
+          // Format datetime-local for input field
+          document.getElementById('startTime').value = data.startTime ? data.startTime.substring(0, 16) : '';
+          document.getElementById('endTime').value = data.endTime ? data.endTime.substring(0, 16) : '';
+          document.getElementById('checkinType').value = data.checkinType || 'none';
+          document.getElementById('mode').value = data.mode || 'normal';
+
+          detailsBox.innerText = JSON.stringify(data, null, 2);
+          showMessage(`Rendezvous "${data.contactName}" loaded for editing.`, false);
+        } else {
+          detailsBox.innerText = 'Rendezvous not found.';
+          showMessage('Rendezvous not found.', true);
+          clearForm();
+        }
+      } catch (e) {
+        showMessage(`Error loading selected rendezvous: ${e.message}`, true);
+        console.error("Error loading selected rendezvous:", e);
+      }
     }
 
+    /**
+     * Creates a new rendezvous or updates an existing one based on rendezvousDocId.
+     */
     async function createOrUpdateRendezvous() {
+      if (!currentUserId) {
+        showMessage("User not authenticated. Please wait for sign-in.", true);
+        return;
+      }
+
+      const docId = document.getElementById('rendezvousDocId').value;
       const data = {
         contactName: document.getElementById('contactName').value,
         profileName: document.getElementById('profileName').value,
@@ -154,30 +307,162 @@
         endTime: document.getElementById('endTime').value,
         checkinType: document.getElementById('checkinType').value,
         mode: document.getElementById('mode').value,
-        status: 'scheduled',
+        status: 'scheduled', // Default status for new/updated rendezvous
         timestamp: new Date().toISOString()
       };
 
       try {
-        if (selectedRendezvousId) {
-          await db.collection("rendezvous").doc(selectedRendezvousId).update(data);
-          alert("Rendezvous updated.");
+        if (docId) {
+          // Update existing document
+          const docRef = doc(rendezvousCollectionRef, docId);
+          await setDoc(docRef, data); // setDoc overwrites, updateDoc merges
+          showMessage("Rendezvous updated in Firestore!", false);
         } else {
-          await db.collection("rendezvous").add(data);
-          alert("Rendezvous created.");
-          window.location.reload();
+          // Add new document
+          await addDoc(rendezvousCollectionRef, data);
+          showMessage("Rendezvous saved to Firestore!", false);
         }
+        clearForm(); // Clear form after saving
       } catch (e) {
-        alert("Error saving rendezvous: " + e.message);
+        showMessage(`Error saving rendezvous: ${e.message}`, true);
+        console.error("Error saving rendezvous:", e);
       }
     }
 
-    function simulateCheckin() {
-      const type = document.getElementById('checkinSimType').value;
-      alert("Simulated check-in: " + type);
+    /**
+     * Deletes the currently selected rendezvous.
+     */
+    async function deleteSelectedRendezvous() {
+      const selectedId = document.getElementById('rendezvousSelect').value;
+      if (!selectedId) {
+        showMessage("No rendezvous selected to delete.", true);
+        return;
+      }
+
+      if (!confirm("Are you sure you want to delete this rendezvous?")) { // Using confirm for simplicity in test console
+        return;
+      }
+
+      try {
+        const docRef = doc(rendezvousCollectionRef, selectedId);
+        await deleteDoc(docRef);
+        showMessage("Rendezvous deleted successfully!", false);
+        clearForm(); // Clear form after deletion
+      } catch (e) {
+        showMessage(`Error deleting rendezvous: ${e.message}`, true);
+        console.error("Error deleting rendezvous:", e);
+      }
     }
 
-    window.onload = loadRendezvousOptions;
+    /**
+     * Starts monitoring a selected rendezvous for time and location deviations.
+     */
+    async function startMonitoring() {
+      stopMonitoring(); // Stop any existing monitoring first
+
+      const selectedId = document.getElementById('monitorRendezvousSelect').value;
+      const simulatedLocation = document.getElementById('simulatedLocation').value.trim();
+      const monitoringStatusDiv = document.getElementById('monitoringStatus');
+
+      if (!selectedId) {
+        showMessage("Please select a rendezvous to monitor.", true);
+        return;
+      }
+
+      try {
+        const docRef = doc(rendezvousCollectionRef, selectedId);
+        const docSnap = await getDoc(docRef);
+
+        if (!docSnap.exists()) {
+          showMessage("Monitored rendezvous not found.", true);
+          return;
+        }
+
+        currentMonitoredRendezvous = { id: docSnap.id, ...docSnap.data() };
+        showMessage(`Monitoring started for "${currentMonitoredRendezvous.contactName}".`, false);
+
+        monitoringInterval = setInterval(async () => {
+          const now = new Date();
+          let deviationDetected = false;
+          let statusMessage = `Monitoring "${currentMonitoredRendezvous.contactName}" (Status: ${currentMonitoredRendezvous.status})\n`;
+          statusMessage += `Current Time: ${now.toLocaleTimeString()}\n`;
+          statusMessage += `Simulated Location: ${simulatedLocation || 'Not provided'}\n\n`;
+
+          // Time Deviation Check
+          if (currentMonitoredRendezvous.endTime) {
+            const endTime = new Date(currentMonitoredRendezvous.endTime);
+            statusMessage += `Rendezvous End Time: ${endTime.toLocaleTimeString()}\n`;
+            if (now > endTime && currentMonitoredRendezvous.status !== 'not_ok') {
+              statusMessage += "Time deviation detected: Current time passed end time!\n";
+              deviationDetected = true;
+            } else {
+              statusMessage += "Time check: OK\n";
+            }
+          }
+
+          // Location Deviation Check
+          if (simulatedLocation && currentMonitoredRendezvous.location) {
+            statusMessage += `Rendezvous Location: ${currentMonitoredRendezvous.location}\n`;
+            if (simulatedLocation.toLowerCase() !== currentMonitoredRendezvous.location.toLowerCase() && currentMonitoredRendezvous.status !== 'not_ok') {
+              statusMessage += "Location deviation detected: Simulated location does not match rendezvous location!\n";
+              deviationDetected = true;
+            } else {
+              statusMessage += "Location check: OK\n";
+            }
+          }
+
+          monitoringStatusDiv.innerText = statusMessage;
+
+          if (deviationDetected) {
+            // Update status to 'not_ok' in Firestore
+            try {
+              await setDoc(doc(rendezvousCollectionRef, currentMonitoredRendezvous.id), { status: 'not_ok' }, { merge: true });
+              showMessage(`Rendezvous "${currentMonitoredRendezvous.contactName}" status updated to NOT OK due to deviation!`, true);
+              currentMonitoredRendezvous.status = 'not_ok'; // Update local state immediately
+            } catch (error) {
+              showMessage(`Error updating status: ${error.message}`, true);
+              console.error("Error updating rendezvous status:", error);
+            }
+          }
+        }, 5000); // Check every 5 seconds
+      } catch (e) {
+        showMessage(`Error starting monitoring: ${e.message}`, true);
+        console.error("Error starting monitoring:", e);
+      }
+    }
+
+    /**
+     * Stops the active monitoring interval.
+     */
+    function stopMonitoring() {
+      if (monitoringInterval) {
+        clearInterval(monitoringInterval);
+        monitoringInterval = null;
+        currentMonitoredRendezvous = null;
+        document.getElementById('monitoringStatus').innerText = 'Monitoring stopped.';
+        showMessage('Monitoring stopped.', false);
+      }
+    }
+
+    /**
+     * Simulates a check-in event.
+     * This function currently just displays a message.
+     */
+    function simulateCheckin() {
+      const type = document.getElementById('checkinSimType').value;
+      showMessage(`Simulated manual check-in: ${type}`, false);
+      // You can extend this to update Firestore with check-in status if needed,
+      // similar to how deviation updates are handled.
+    }
+
+    // Expose functions to the global scope for onclick attributes
+    window.createOrUpdateRendezvous = createOrUpdateRendezvous;
+    window.simulateCheckin = simulateCheckin;
+    window.loadSelectedRendezvous = loadSelectedRendezvous;
+    window.deleteSelectedRendezvous = deleteSelectedRendezvous;
+    window.startMonitoring = startMonitoring;
+    window.stopMonitoring = stopMonitoring;
+    window.clearForm = clearForm;
   </script>
 </body>
 </html>
