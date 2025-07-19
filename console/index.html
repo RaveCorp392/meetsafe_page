@@ -142,10 +142,19 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Global variables from Canvas environment
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAV52Ads-ckhKuGsKvHoYYTrDIqBHMHusQ",
+            authDomain: "meetsafe-clean-core.firebaseapp.com",
+            projectId: "meetsafe-clean-core",
+            storageBucket: "meetsafe-clean-core.firebasestorage.app",
+            messagingSenderId: "970833854934",
+            appId: "1:970833854934:web:5ae847503baa2c6c552477",
+            measurementId: "G-E6LBFE2SEB"
+        };
+        // This 'appId' is used for the Firestore collection path, typically your project ID or a custom app identifier.
+        const appId = "meetsafe-clean-core";
+        const initialAuthToken = null; // Set to null if you're not using custom tokens for static hosting
 
         let app;
         let db;
@@ -209,8 +218,10 @@
 
         // --- Firebase Initialization and Auth ---
         window.onload = async () => {
+            // Firebase config is now hardcoded, so this check is less critical for static hosting.
+            // But good to keep for robustness.
             if (!firebaseConfig.apiKey) {
-                showMessage("Firebase config missing. Please ensure __firebase_config is set.", true);
+                showMessage("Firebase config missing. Please ensure configuration is set in the script.", true);
                 log("🔥 Firebase config missing.");
                 return;
             }
@@ -229,11 +240,9 @@
                         setupRendezvousListener(); // Start listening to data once authenticated
                     } else {
                         try {
-                            if (initialAuthToken) {
-                                await signInWithCustomToken(auth, initialAuthToken);
-                            } else {
-                                await signInAnonymously(auth);
-                            }
+                            // For static hosting, we typically rely on anonymous sign-in or a separate login flow.
+                            // The initialAuthToken from Canvas environment won't be available here.
+                            await signInAnonymously(auth);
                         } catch (error) {
                             log(`🔥 Firebase Auth Error: ${error.message}`);
                             console.error("Firebase Auth Error: ", error);
