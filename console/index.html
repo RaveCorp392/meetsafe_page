@@ -60,6 +60,7 @@
       <option value="stealth">Stealth Mode</option>
     </select>
     <button type="submit" id="submitBtn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">Submit</button>
+    <button type="button" id="deleteBtn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 ml-2 rounded">Delete</button>
   </form>
 
   <div class="panel">
@@ -74,12 +75,13 @@
     <h2 class="text-xl font-semibold">Simulate Time Events</h2>
     <button id="simulateStartPromptBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 mr-2 rounded">Simulate Start Prompt</button>
     <button id="simulateEndPromptBtn" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded">Simulate End Prompt</button>
+    <pre id="simLog" class="log-area bg-black text-white p-3 mt-4 rounded h-40 overflow-y-scroll text-sm">Log area for simulation events</pre>
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getFirestore, collection, addDoc, getDoc, doc, query, orderBy, onSnapshot, serverTimestamp, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, getDoc, doc, query, orderBy, onSnapshot, serverTimestamp, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAV52Ads-ckhKuGsKvHoYYTrDIqBHMHusQ",
@@ -112,11 +114,20 @@
         endTimeInput: document.getElementById('endTime'),
         checkInTypeInput: document.getElementById('checkInType'),
         modeInput: document.getElementById('mode'),
+        deleteBtn: document.getElementById('deleteBtn'),
+        simLog: document.getElementById('simLog')
       };
 
       let userId = null;
       let rendezvousCollection = null;
       let currentDocRef = null;
+
+      const logSimEvent = (msg) => {
+        const line = document.createElement('div');
+        line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        elements.simLog.appendChild(line);
+        elements.simLog.scrollTop = elements.simLog.scrollHeight;
+      };
 
       const setFormEnabled = (enabled) => {
         elements.rendezvousForm.style.opacity = enabled ? '1' : '0.5';
@@ -141,6 +152,13 @@
 
       elements.signOutBtn.addEventListener('click', async () => {
         await signOut(auth);
+      });
+
+      elements.deleteBtn.addEventListener('click', async () => {
+        if (currentDocRef && confirm("Are you sure you want to delete this rendezvous?")) {
+          await deleteDoc(currentDocRef);
+          currentDocRef = null;
+        }
       });
 
       onAuthStateChanged(auth, (user) => {
@@ -204,7 +222,7 @@
           snapshot.forEach((docSnap) => {
             const opt = document.createElement('option');
             opt.value = docSnap.id;
-            opt.textContent = docSnap.data().contactName;
+            opt.textContent = `${docSnap.data().contactName}`;
             elements.rendezvousSelect.appendChild(opt);
           });
         });
@@ -235,9 +253,9 @@
             type: 'start',
             triggeredAt: serverTimestamp()
           });
-          alert('Simulated start prompt.');
+          logSimEvent('Simulated start prompt.');
         } catch (e) {
-          alert('Error: ' + e.message);
+          logSimEvent('Error simulating start: ' + e.message);
         }
       });
 
@@ -248,9 +266,9 @@
             type: 'end',
             triggeredAt: serverTimestamp()
           });
-          alert('Simulated end prompt.');
+          logSimEvent('Simulated end prompt.');
         } catch (e) {
-          alert('Error: ' + e.message);
+          logSimEvent('Error simulating end: ' + e.message);
         }
       });
     });
