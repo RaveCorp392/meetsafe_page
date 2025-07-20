@@ -75,7 +75,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getFirestore, collection, query, where, onSnapshot, updateDoc, doc, addDoc, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getFirestore, collection, query, where, onSnapshot, updateDoc, doc, addDoc, Timestamp, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAV52Ads-ckhKuGsKvHoYYTrDIqBHMHusQ",
@@ -115,6 +115,16 @@
         }
       });
     };
+
+    setInterval(async () => {
+      if (!currentUser) return;
+      const q = query(
+        collection(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous`),
+        where("status", "==", "active")
+      );
+      const snapshot = await getDocs(q);
+      checkStartTimes(snapshot.docs);
+    }, 1000);
 
     document.getElementById("submitRdv").addEventListener("click", async () => {
       const contactName = document.getElementById("contactName").value;
