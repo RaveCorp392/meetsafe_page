@@ -52,6 +52,11 @@
     <button class="bg-green-500 text-white px-4 py-2 rounded" id="submitRdv">Submit</button>
   </div>
 
+  <div class="bg-white rounded-lg p-4 shadow">
+    <h2 class="text-xl font-semibold mb-2">Current Time</h2>
+    <div class="text-gray-700 text-lg" id="clockDisplay"></div>
+  </div>
+
   <div id="monitorArea" class="bg-white rounded-lg p-4 shadow">
     <h2 class="text-xl font-semibold mb-2">Real-Time Check Monitor</h2>
     <div id="monitorLog" class="log-area bg-gray-900 text-white p-3 rounded h-40 overflow-y-scroll text-sm">Monitoring log output</div>
@@ -92,12 +97,18 @@
       area.scrollTop = area.scrollHeight;
     };
 
+    const updateClock = () => {
+      document.getElementById("clockDisplay").textContent = new Date().toLocaleTimeString();
+    };
+    setInterval(updateClock, 1000);
+    updateClock();
+
     const checkStartTimes = (docs) => {
       const now = Math.floor(Date.now() / 1000);
       docs.forEach(docSnap => {
         const data = docSnap.data();
         const start = data.startTime?.seconds;
-        if (start && Math.abs(start - now) < 60 && !data.initialCheckinDone && !promptedDocs.has(docSnap.id)) {
+        if (start && now >= start && now - start < 60 && !data.initialCheckinDone && !promptedDocs.has(docSnap.id)) {
           promptedDocs.add(docSnap.id);
           logToMonitor(`Start time reached for ${data.contactName}. Show check-in options.`);
           document.getElementById('checkinPrompt').classList.remove('hidden');
