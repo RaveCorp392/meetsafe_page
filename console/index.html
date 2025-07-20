@@ -44,44 +44,15 @@
     </div>
   </div>
 
-  <form id="rendezvousForm" class="space-y-4 bg-white p-4 rounded shadow-md" style="opacity:0.5; pointer-events:none;">
-    <input type="text" id="contactName" placeholder="Contact Name" class="w-full p-2 border rounded" />
-    <input type="text" id="profileURL" placeholder="Profile URL (optional)" class="w-full p-2 border rounded" />
-    <textarea id="notes" placeholder="Notes (optional)" class="w-full p-2 border rounded"></textarea>
-    <input type="datetime-local" id="startTime" class="w-full p-2 border rounded" />
-    <input type="datetime-local" id="endTime" class="w-full p-2 border rounded" />
-    <select id="checkInType" class="w-full p-2 border rounded">
-      <option value="none">No Check-in</option>
-      <option value="10min">10 Minute Check-in</option>
-      <option value="halfway">Midpoint Check-in</option>
-    </select>
-    <select id="mode" class="w-full p-2 border rounded">
-      <option value="normal">Normal Mode</option>
-      <option value="stealth">Stealth Mode</option>
-    </select>
-    <button type="submit" id="submitBtn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">Submit</button>
-    <button type="button" id="deleteBtn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 ml-2 rounded">Delete</button>
-  </form>
-
-  <div class="panel">
-    <h2 class="text-xl font-semibold">Rendezvous List</h2>
-    <select id="rendezvousSelect" class="w-full p-2 border rounded">
-      <option value="">-- Select Rendezvous --</option>
-    </select>
-    <pre id="rendezvousJson" class="bg-gray-100 p-3 mt-3 rounded overflow-x-auto">Rendezvous not loaded.</pre>
-  </div>
-
-  <div class="panel">
-    <h2 class="text-xl font-semibold">Simulate Time Events</h2>
-    <button id="simulateStartPromptBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 mr-2 rounded">Simulate Start Prompt</button>
-    <button id="simulateEndPromptBtn" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded">Simulate End Prompt</button>
-    <pre id="simLog" class="log-area bg-black text-white p-3 mt-4 rounded h-40 overflow-y-scroll text-sm">Log area for simulation events</pre>
+  <div id="monitorArea" class="bg-white rounded-lg p-4 shadow">
+    <h2 class="text-xl font-semibold mb-2">Real-Time Check Monitor</h2>
+    <div id="monitorLog" class="log-area bg-gray-900 text-white p-3 rounded h-40 overflow-y-scroll text-sm">Monitoring log output</div>
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getFirestore, collection, addDoc, getDoc, doc, query, orderBy, onSnapshot, serverTimestamp, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getFirestore, collection, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAV52Ads-ckhKuGsKvHoYYTrDIqBHMHusQ",
@@ -93,184 +64,36 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    document.addEventListener('DOMContentLoaded', () => {
-      const elements = {
-        authEmailInput: document.getElementById('authEmail'),
-        authPasswordInput: document.getElementById('authPassword'),
-        signUpBtn: document.getElementById('signUpBtn'),
-        signInBtn: document.getElementById('signInBtn'),
-        signOutBtn: document.getElementById('signOutBtn'),
-        currentUserDisplay: document.getElementById('currentUserDisplay'),
-        currentUidDisplay: document.getElementById('currentUidDisplay'),
-        rendezvousForm: document.getElementById('rendezvousForm'),
-        rendezvousSelect: document.getElementById('rendezvousSelect'),
-        rendezvousJson: document.getElementById('rendezvousJson'),
-        simulateStartPromptBtn: document.getElementById('simulateStartPromptBtn'),
-        simulateEndPromptBtn: document.getElementById('simulateEndPromptBtn'),
-        contactNameInput: document.getElementById('contactName'),
-        profileURLInput: document.getElementById('profileURL'),
-        notesInput: document.getElementById('notes'),
-        startTimeInput: document.getElementById('startTime'),
-        endTimeInput: document.getElementById('endTime'),
-        checkInTypeInput: document.getElementById('checkInType'),
-        modeInput: document.getElementById('mode'),
-        deleteBtn: document.getElementById('deleteBtn'),
-        simLog: document.getElementById('simLog')
-      };
+    const logToMonitor = (msg) => {
+      const area = document.getElementById('monitorLog');
+      const div = document.createElement('div');
+      div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+      area.appendChild(div);
+      area.scrollTop = area.scrollHeight;
+    };
 
-      let userId = null;
-      let rendezvousCollection = null;
-      let currentDocRef = null;
-
-      const logSimEvent = (msg) => {
-        const line = document.createElement('div');
-        line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-        elements.simLog.appendChild(line);
-        elements.simLog.scrollTop = elements.simLog.scrollHeight;
-      };
-
-      const setFormEnabled = (enabled) => {
-        elements.rendezvousForm.style.opacity = enabled ? '1' : '0.5';
-        elements.rendezvousForm.style.pointerEvents = enabled ? 'auto' : 'none';
-      };
-
-      elements.signUpBtn.addEventListener('click', async () => {
-        try {
-          await createUserWithEmailAndPassword(auth, elements.authEmailInput.value, elements.authPasswordInput.value);
-        } catch (e) {
-          alert(e.message);
-        }
-      });
-
-      elements.signInBtn.addEventListener('click', async () => {
-        try {
-          await signInWithEmailAndPassword(auth, elements.authEmailInput.value, elements.authPasswordInput.value);
-        } catch (e) {
-          alert(e.message);
-        }
-      });
-
-      elements.signOutBtn.addEventListener('click', async () => {
-        await signOut(auth);
-      });
-
-      elements.deleteBtn.addEventListener('click', async () => {
-        if (currentDocRef && confirm("Are you sure you want to delete this rendezvous?")) {
-          await deleteDoc(currentDocRef);
-          currentDocRef = null;
-        }
-      });
-
-      onAuthStateChanged(auth, (user) => {
-        if (user) {
-          userId = user.uid;
-          elements.currentUserDisplay.textContent = user.email;
-          elements.currentUidDisplay.textContent = user.uid;
-          setFormEnabled(true);
-          rendezvousCollection = collection(db, `artifacts/meetsafe-clean-core/users/${userId}/rendezvous`);
-          loadRendezvous();
-        } else {
-          setFormEnabled(false);
-          elements.currentUserDisplay.textContent = 'Not authenticated';
-          elements.currentUidDisplay.textContent = 'N/A';
-          elements.rendezvousSelect.innerHTML = '<option value="">-- Select Rendezvous --</option>';
-          elements.rendezvousJson.textContent = 'Rendezvous not loaded.';
-        }
-      });
-
-      elements.rendezvousForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        if (!userId) return;
-        try {
-          const data = {
-            contactName: elements.contactNameInput.value,
-            profileURL: elements.profileURLInput.value,
-            notes: elements.notesInput.value,
-            startTime: new Date(elements.startTimeInput.value),
-            endTime: new Date(elements.endTimeInput.value),
-            checkInType: elements.checkInTypeInput.value,
-            mode: elements.modeInput.value,
-            status: 'active',
-            midPointCheckedIn: false,
-            initialCheckinDone: false,
-            isLate: false,
-            userId: userId,
-            createdAt: serverTimestamp(),
-          };
-
-          if (currentDocRef) {
-            await setDoc(currentDocRef, data, { merge: true });
-          } else {
-            await addDoc(rendezvousCollection, data);
-          }
-
-          elements.contactNameInput.value = '';
-          elements.profileURLInput.value = '';
-          elements.notesInput.value = '';
-          elements.startTimeInput.value = '';
-          elements.endTimeInput.value = '';
-          currentDocRef = null;
-        } catch (e) {
-          alert('Error saving: ' + e.message);
-        }
-      });
-
-      async function loadRendezvous() {
-        const q = query(rendezvousCollection, orderBy('startTime', 'desc'));
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        document.getElementById('currentUserDisplay').textContent = user.email;
+        document.getElementById('currentUidDisplay').textContent = user.uid;
+        const q = query(collection(db, `artifacts/meetsafe-clean-core/users/${user.uid}/rendezvous`), where("status", "==", "active"));
         onSnapshot(q, (snapshot) => {
-          elements.rendezvousSelect.innerHTML = '<option value="">-- Select Rendezvous --</option>';
-          snapshot.forEach((docSnap) => {
-            const opt = document.createElement('option');
-            opt.value = docSnap.id;
-            opt.textContent = `${docSnap.data().contactName}`;
-            elements.rendezvousSelect.appendChild(opt);
+          snapshot.docChanges().forEach(change => {
+            const data = change.doc.data();
+            if (change.type === "added") {
+              logToMonitor(`Added rendezvous: ${data.contactName}`);
+            } else if (change.type === "modified") {
+              logToMonitor(`Updated rendezvous: ${data.contactName}`);
+            } else if (change.type === "removed") {
+              logToMonitor(`Deleted rendezvous: ${data.contactName}`);
+            }
           });
         });
+      } else {
+        document.getElementById('currentUserDisplay').textContent = 'Not authenticated';
+        document.getElementById('currentUidDisplay').textContent = 'N/A';
+        logToMonitor('Auth state changed: signed out');
       }
-
-      elements.rendezvousSelect.addEventListener('change', async () => {
-        const selectedId = elements.rendezvousSelect.value;
-        if (!selectedId) return (elements.rendezvousJson.textContent = 'No rendezvous selected.');
-        const docRef = doc(db, rendezvousCollection.path, selectedId);
-        currentDocRef = docRef;
-        const docSnap = await getDoc(docRef);
-        const data = docSnap.data();
-        elements.rendezvousJson.textContent = JSON.stringify(data, null, 2);
-
-        elements.contactNameInput.value = data.contactName || '';
-        elements.profileURLInput.value = data.profileURL || '';
-        elements.notesInput.value = data.notes || '';
-        elements.startTimeInput.value = new Date(data.startTime.seconds * 1000).toISOString().slice(0, 16);
-        elements.endTimeInput.value = new Date(data.endTime.seconds * 1000).toISOString().slice(0, 16);
-        elements.checkInTypeInput.value = data.checkInType || 'none';
-        elements.modeInput.value = data.mode || 'normal';
-      });
-
-      elements.simulateStartPromptBtn.addEventListener('click', async () => {
-        if (!currentDocRef) return alert('Select a rendezvous first.');
-        try {
-          await addDoc(collection(currentDocRef, 'simulations'), {
-            type: 'start',
-            triggeredAt: serverTimestamp()
-          });
-          logSimEvent('Simulated start prompt.');
-        } catch (e) {
-          logSimEvent('Error simulating start: ' + e.message);
-        }
-      });
-
-      elements.simulateEndPromptBtn.addEventListener('click', async () => {
-        if (!currentDocRef) return alert('Select a rendezvous first.');
-        try {
-          await addDoc(collection(currentDocRef, 'simulations'), {
-            type: 'end',
-            triggeredAt: serverTimestamp()
-          });
-          logSimEvent('Simulated end prompt.');
-        } catch (e) {
-          logSimEvent('Error simulating end: ' + e.message);
-        }
-      });
     });
   </script>
 </body>
