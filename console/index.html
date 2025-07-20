@@ -120,6 +120,7 @@
       const signOutBtn = document.getElementById('signOutBtn');
       const currentUserDisplay = document.getElementById('currentUserDisplay');
       const currentUidDisplay = document.getElementById('currentUidDisplay');
+      const rendezvousForm = document.getElementById('rendezvousForm');
 
       signUpBtn.addEventListener('click', async () => {
         const email = authEmailInput.value;
@@ -164,9 +165,17 @@
         if (user) {
           currentUserDisplay.textContent = user.email || 'Anonymous';
           currentUidDisplay.textContent = user.uid;
+          if (rendezvousForm) {
+            rendezvousForm.style.pointerEvents = 'auto';
+            rendezvousForm.style.opacity = '1';
+          }
         } else {
           currentUserDisplay.textContent = 'Not authenticated';
           currentUidDisplay.textContent = 'N/A';
+          if (rendezvousForm) {
+            rendezvousForm.style.pointerEvents = 'none';
+            rendezvousForm.style.opacity = '0.5';
+          }
         }
       });
     });
