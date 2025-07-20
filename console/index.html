@@ -108,6 +108,9 @@
       docs.forEach(docSnap => {
         const data = docSnap.data();
         const start = data.startTime?.seconds;
+        if (start) {
+          logToMonitor(`Evaluating ${data.contactName}: scheduled ${start}, now ${now}`);
+        }
         if (start && now >= start && now - start < 60 && !data.initialCheckinDone && !promptedDocs.has(docSnap.id)) {
           promptedDocs.add(docSnap.id);
           logToMonitor(`Start time reached for ${data.contactName}. Show check-in options.`);
