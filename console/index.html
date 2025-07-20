@@ -57,6 +57,16 @@
     <div id="monitorLog" class="log-area bg-gray-900 text-white p-3 rounded h-40 overflow-y-scroll text-sm">Monitoring log output</div>
   </div>
 
+  <div id="checkinPrompt" class="hidden bg-yellow-100 border border-yellow-300 text-yellow-900 rounded p-4">
+    <p class="font-medium mb-2">Start check-in: What would you like to do?</p>
+    <div class="space-x-2">
+      <button class="bg-blue-500 text-white px-3 py-1 rounded">Start on Time</button>
+      <button class="bg-yellow-500 text-white px-3 py-1 rounded">Running Late</button>
+      <button class="bg-orange-500 text-white px-3 py-1 rounded">Reschedule</button>
+      <button class="bg-red-500 text-white px-3 py-1 rounded">Cancel</button>
+    </div>
+  </div>
+
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
@@ -88,6 +98,7 @@
         const start = data.startTime?.seconds;
         if (start && Math.abs(start - now) < 60 && !data.initialCheckinDone) {
           logToMonitor(`Start time reached for ${data.contactName}. Show check-in options.`);
+          document.getElementById('checkinPrompt').classList.remove('hidden');
         }
       });
     };
