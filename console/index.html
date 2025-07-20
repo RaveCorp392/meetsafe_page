@@ -47,61 +47,18 @@
   <span id="userIdDisplay" style="display:none;"></span>
 
   <form id="rendezvousForm" class="space-y-4 bg-white p-4 rounded shadow-md" style="opacity:0.5; pointer-events:none;">
-    <input type="hidden" id="rendezvousId" />
     <input type="text" id="contactName" placeholder="Contact Name" class="w-full p-2 border rounded" />
-    <input type="text" id="profileURL" placeholder="Profile URL (optional)" class="w-full p-2 border rounded" />
-    <textarea id="notes" placeholder="Notes (optional)" class="w-full p-2 border rounded"></textarea>
     <input type="datetime-local" id="startTime" class="w-full p-2 border rounded" />
     <input type="datetime-local" id="endTime" class="w-full p-2 border rounded" />
-    <select id="checkInType" class="w-full p-2 border rounded">
-      <option value="none">No Check-in</option>
-      <option value="10min">10 Minute Check-in</option>
-      <option value="halfway">Midpoint Check-in</option>
-    </select>
-    <select id="mode" class="w-full p-2 border rounded">
-      <option value="normal">Normal Mode</option>
-      <option value="stealth">Stealth Mode</option>
-    </select>
-    <div class="flex gap-2">
-      <button type="submit" id="submitBtn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">Submit</button>
-      <button type="button" id="clearFormBtn" class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded">Clear</button>
-      <button type="button" id="deleteBtn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded">Delete</button>
-    </div>
+    <button type="submit" id="submitBtn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">Submit</button>
   </form>
 
-  <div class="panel">
-    <h2 class="text-xl font-semibold mb-2">Rendezvous List</h2>
-    <ul id="rendezvousList" class="space-y-2"></ul>
-  </div>
-
-  <div class="panel">
-    <h2 class="text-xl font-semibold">Simulate Time Events</h2>
-    <select id="rendezvousSelect" class="w-full p-2 border rounded">
-      <option value="">-- Select Rendezvous --</option>
-    </select>
-    <button id="simulateStartPromptBtn" class="mt-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">Simulate Start Prompt</button>
-    <button id="simulateEndPromptBtn" class="mt-2 bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded">Simulate End Prompt</button>
-    <pre id="rendezvousJson" class="bg-gray-100 p-3 mt-3 rounded overflow-x-auto">Rendezvous not loaded.</pre>
-  </div>
-
-  <pre id="logArea" class="log-area bg-black text-white p-3 mt-4 max-h-60 overflow-y-scroll rounded"></pre>
-
-  <div id="messageBox" class="fixed bottom-5 left-1/2 -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg z-50 transition-opacity duration-300 opacity-0 pointer-events-none"></div>
-
-  <div id="confirmDialog" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 p-4 hidden">
-    <div class="bg-white p-8 rounded-xl shadow-2xl text-center max-w-sm w-full">
-      <h3 class="text-xl font-bold text-gray-800 mb-4">Confirm Action</h3>
-      <p id="confirmMessage" class="text-gray-700 mb-6"></p>
-      <div class="flex justify-center gap-4">
-        <button id="confirmYes" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-5 rounded-lg">Confirm</button>
-        <button id="confirmNo" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-5 rounded-lg">Cancel</button>
-      </div>
-    </div>
-  </div>
+  <ul id="rendezvousList" class="space-y-2"></ul>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAV52Ads-ckhKuGsKvHoYYTrDIqBHMHusQ",
@@ -111,6 +68,7 @@
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
+    const db = getFirestore(app);
 
     document.addEventListener('DOMContentLoaded', () => {
       const authEmailInput = document.getElementById('authEmail');
@@ -121,63 +79,96 @@
       const currentUserDisplay = document.getElementById('currentUserDisplay');
       const currentUidDisplay = document.getElementById('currentUidDisplay');
       const rendezvousForm = document.getElementById('rendezvousForm');
+      const submitBtn = document.getElementById('submitBtn');
+      const rendezvousList = document.getElementById('rendezvousList');
+
+      const contactNameInput = document.getElementById('contactName');
+      const startTimeInput = document.getElementById('startTime');
+      const endTimeInput = document.getElementById('endTime');
+
+      let userId = null;
 
       signUpBtn.addEventListener('click', async () => {
         const email = authEmailInput.value;
         const password = authPasswordInput.value;
-        if (!email || !password) {
-          alert('Email and password are required for sign up.');
-          return;
-        }
+        if (!email || !password) return alert('Enter both email and password');
         try {
           await createUserWithEmailAndPassword(auth, email, password);
-          alert('Signed up and logged in successfully!');
-        } catch (error) {
-          alert('Sign up error: ' + error.message);
+          alert('Signed up successfully');
+        } catch (e) {
+          alert('Error: ' + e.message);
         }
       });
 
       signInBtn.addEventListener('click', async () => {
         const email = authEmailInput.value;
         const password = authPasswordInput.value;
-        if (!email || !password) {
-          alert('Email and password are required for sign in.');
-          return;
-        }
+        if (!email || !password) return alert('Enter both email and password');
         try {
           await signInWithEmailAndPassword(auth, email, password);
-          alert('Signed in successfully!');
-        } catch (error) {
-          alert('Sign in error: ' + error.message);
+          alert('Signed in successfully');
+        } catch (e) {
+          alert('Error: ' + e.message);
         }
       });
 
       signOutBtn.addEventListener('click', async () => {
         try {
           await signOut(auth);
-          alert('Signed out successfully.');
-        } catch (error) {
-          alert('Sign out error: ' + error.message);
+          alert('Signed out');
+        } catch (e) {
+          alert('Error: ' + e.message);
         }
       });
 
       onAuthStateChanged(auth, (user) => {
         if (user) {
-          currentUserDisplay.textContent = user.email || 'Anonymous';
+          userId = user.uid;
+          currentUserDisplay.textContent = user.email;
           currentUidDisplay.textContent = user.uid;
-          if (rendezvousForm) {
-            rendezvousForm.style.pointerEvents = 'auto';
-            rendezvousForm.style.opacity = '1';
-          }
+          rendezvousForm.style.opacity = '1';
+          rendezvousForm.style.pointerEvents = 'auto';
+          loadRendezvous();
         } else {
           currentUserDisplay.textContent = 'Not authenticated';
           currentUidDisplay.textContent = 'N/A';
-          if (rendezvousForm) {
-            rendezvousForm.style.pointerEvents = 'none';
-            rendezvousForm.style.opacity = '0.5';
-          }
+          rendezvousForm.style.opacity = '0.5';
+          rendezvousForm.style.pointerEvents = 'none';
+          rendezvousList.innerHTML = '';
         }
       });
+
+      rendezvousForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!userId) return;
+        try {
+          await addDoc(collection(db, `artifacts/meetsafe-clean-core/users/${userId}/rendezvous`), {
+            contactName: contactNameInput.value,
+            startTime: new Date(startTimeInput.value),
+            endTime: new Date(endTimeInput.value),
+            createdAt: serverTimestamp(),
+          });
+          alert('Rendezvous saved');
+          contactNameInput.value = '';
+          startTimeInput.value = '';
+          endTimeInput.value = '';
+        } catch (e) {
+          alert('Error: ' + e.message);
+        }
+      });
+
+      function loadRendezvous() {
+        if (!userId) return;
+        const q = query(collection(db, `artifacts/meetsafe-clean-core/users/${userId}/rendezvous`), orderBy('startTime', 'desc'));
+        onSnapshot(q, (snapshot) => {
+          rendezvousList.innerHTML = '';
+          snapshot.forEach((doc) => {
+            const li = document.createElement('li');
+            li.textContent = doc.data().contactName + ' (' + new Date(doc.data().startTime.seconds * 1000).toLocaleString() + ')';
+            rendezvousList.appendChild(li);
+          });
+        });
+      }
     });
   </script>
 </body>
