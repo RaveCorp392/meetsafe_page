@@ -52,7 +52,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getFirestore, collection, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getFirestore, collection, query, where, onSnapshot, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAV52Ads-ckhKuGsKvHoYYTrDIqBHMHusQ",
@@ -72,6 +72,17 @@
       area.scrollTop = area.scrollHeight;
     };
 
+    const checkStartTimes = (docs) => {
+      const now = Math.floor(Date.now() / 1000);
+      docs.forEach(docSnap => {
+        const data = docSnap.data();
+        const start = data.startTime?.seconds;
+        if (start && Math.abs(start - now) < 60 && !data.initialCheckinDone) {
+          logToMonitor(`Start time reached for ${data.contactName}. Show check-in options.`);
+        }
+      });
+    };
+
     onAuthStateChanged(auth, (user) => {
       if (user) {
         document.getElementById('currentUserDisplay').textContent = user.email;
@@ -88,6 +99,7 @@
               logToMonitor(`Deleted rendezvous: ${data.contactName}`);
             }
           });
+          checkStartTimes(snapshot.docs);
         });
       } else {
         document.getElementById('currentUserDisplay').textContent = 'Not authenticated';
