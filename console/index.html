@@ -79,7 +79,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getFirestore, collection, addDoc, getDoc, doc, query, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, getDoc, doc, query, orderBy, onSnapshot, serverTimestamp, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAV52Ads-ckhKuGsKvHoYYTrDIqBHMHusQ",
@@ -92,94 +92,106 @@
     const db = getFirestore(app);
 
     document.addEventListener('DOMContentLoaded', () => {
-      const authEmailInput = document.getElementById('authEmail');
-      const authPasswordInput = document.getElementById('authPassword');
-      const signUpBtn = document.getElementById('signUpBtn');
-      const signInBtn = document.getElementById('signInBtn');
-      const signOutBtn = document.getElementById('signOutBtn');
-      const currentUserDisplay = document.getElementById('currentUserDisplay');
-      const currentUidDisplay = document.getElementById('currentUidDisplay');
-      const rendezvousForm = document.getElementById('rendezvousForm');
-      const rendezvousSelect = document.getElementById('rendezvousSelect');
-      const rendezvousJson = document.getElementById('rendezvousJson');
-      const simulateStartPromptBtn = document.getElementById('simulateStartPromptBtn');
-      const simulateEndPromptBtn = document.getElementById('simulateEndPromptBtn');
-
-      const contactNameInput = document.getElementById('contactName');
-      const profileURLInput = document.getElementById('profileURL');
-      const notesInput = document.getElementById('notes');
-      const startTimeInput = document.getElementById('startTime');
-      const endTimeInput = document.getElementById('endTime');
-      const checkInTypeInput = document.getElementById('checkInType');
-      const modeInput = document.getElementById('mode');
+      const elements = {
+        authEmailInput: document.getElementById('authEmail'),
+        authPasswordInput: document.getElementById('authPassword'),
+        signUpBtn: document.getElementById('signUpBtn'),
+        signInBtn: document.getElementById('signInBtn'),
+        signOutBtn: document.getElementById('signOutBtn'),
+        currentUserDisplay: document.getElementById('currentUserDisplay'),
+        currentUidDisplay: document.getElementById('currentUidDisplay'),
+        rendezvousForm: document.getElementById('rendezvousForm'),
+        rendezvousSelect: document.getElementById('rendezvousSelect'),
+        rendezvousJson: document.getElementById('rendezvousJson'),
+        simulateStartPromptBtn: document.getElementById('simulateStartPromptBtn'),
+        simulateEndPromptBtn: document.getElementById('simulateEndPromptBtn'),
+        contactNameInput: document.getElementById('contactName'),
+        profileURLInput: document.getElementById('profileURL'),
+        notesInput: document.getElementById('notes'),
+        startTimeInput: document.getElementById('startTime'),
+        endTimeInput: document.getElementById('endTime'),
+        checkInTypeInput: document.getElementById('checkInType'),
+        modeInput: document.getElementById('mode'),
+      };
 
       let userId = null;
       let rendezvousCollection = null;
       let currentDocRef = null;
 
-      signUpBtn.addEventListener('click', async () => {
+      const setFormEnabled = (enabled) => {
+        elements.rendezvousForm.style.opacity = enabled ? '1' : '0.5';
+        elements.rendezvousForm.style.pointerEvents = enabled ? 'auto' : 'none';
+      };
+
+      elements.signUpBtn.addEventListener('click', async () => {
         try {
-          await createUserWithEmailAndPassword(auth, authEmailInput.value, authPasswordInput.value);
+          await createUserWithEmailAndPassword(auth, elements.authEmailInput.value, elements.authPasswordInput.value);
         } catch (e) {
           alert(e.message);
         }
       });
 
-      signInBtn.addEventListener('click', async () => {
+      elements.signInBtn.addEventListener('click', async () => {
         try {
-          await signInWithEmailAndPassword(auth, authEmailInput.value, authPasswordInput.value);
+          await signInWithEmailAndPassword(auth, elements.authEmailInput.value, elements.authPasswordInput.value);
         } catch (e) {
           alert(e.message);
         }
       });
 
-      signOutBtn.addEventListener('click', async () => {
+      elements.signOutBtn.addEventListener('click', async () => {
         await signOut(auth);
       });
 
       onAuthStateChanged(auth, (user) => {
         if (user) {
           userId = user.uid;
-          currentUserDisplay.textContent = user.email;
-          currentUidDisplay.textContent = user.uid;
-          rendezvousForm.style.opacity = '1';
-          rendezvousForm.style.pointerEvents = 'auto';
+          elements.currentUserDisplay.textContent = user.email;
+          elements.currentUidDisplay.textContent = user.uid;
+          setFormEnabled(true);
           rendezvousCollection = collection(db, `artifacts/meetsafe-clean-core/users/${userId}/rendezvous`);
           loadRendezvous();
         } else {
-          rendezvousForm.style.opacity = '0.5';
-          rendezvousForm.style.pointerEvents = 'none';
-          currentUserDisplay.textContent = 'Not authenticated';
-          currentUidDisplay.textContent = 'N/A';
-          rendezvousSelect.innerHTML = '<option value="">-- Select Rendezvous --</option>';
-          rendezvousJson.textContent = 'Rendezvous not loaded.';
+          setFormEnabled(false);
+          elements.currentUserDisplay.textContent = 'Not authenticated';
+          elements.currentUidDisplay.textContent = 'N/A';
+          elements.rendezvousSelect.innerHTML = '<option value="">-- Select Rendezvous --</option>';
+          elements.rendezvousJson.textContent = 'Rendezvous not loaded.';
         }
       });
 
-      rendezvousForm.addEventListener('submit', async (e) => {
+      elements.rendezvousForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         if (!userId) return;
         try {
-          await addDoc(rendezvousCollection, {
-            contactName: contactNameInput.value,
-            profileURL: profileURLInput.value,
-            notes: notesInput.value,
-            startTime: new Date(startTimeInput.value),
-            endTime: new Date(endTimeInput.value),
-            checkInType: checkInTypeInput.value,
-            mode: modeInput.value,
+          const data = {
+            contactName: elements.contactNameInput.value,
+            profileURL: elements.profileURLInput.value,
+            notes: elements.notesInput.value,
+            startTime: new Date(elements.startTimeInput.value),
+            endTime: new Date(elements.endTimeInput.value),
+            checkInType: elements.checkInTypeInput.value,
+            mode: elements.modeInput.value,
             status: 'active',
             midPointCheckedIn: false,
             initialCheckinDone: false,
             isLate: false,
             userId: userId,
             createdAt: serverTimestamp(),
-          });
-          contactNameInput.value = '';
-          profileURLInput.value = '';
-          notesInput.value = '';
-          startTimeInput.value = '';
-          endTimeInput.value = '';
+          };
+
+          if (currentDocRef) {
+            await setDoc(currentDocRef, data, { merge: true });
+          } else {
+            await addDoc(rendezvousCollection, data);
+          }
+
+          elements.contactNameInput.value = '';
+          elements.profileURLInput.value = '';
+          elements.notesInput.value = '';
+          elements.startTimeInput.value = '';
+          elements.endTimeInput.value = '';
+          currentDocRef = null;
         } catch (e) {
           alert('Error saving: ' + e.message);
         }
@@ -188,41 +200,58 @@
       async function loadRendezvous() {
         const q = query(rendezvousCollection, orderBy('startTime', 'desc'));
         onSnapshot(q, (snapshot) => {
-          rendezvousSelect.innerHTML = '<option value="">-- Select Rendezvous --</option>';
+          elements.rendezvousSelect.innerHTML = '<option value="">-- Select Rendezvous --</option>';
           snapshot.forEach((docSnap) => {
             const opt = document.createElement('option');
             opt.value = docSnap.id;
             opt.textContent = docSnap.data().contactName;
-            rendezvousSelect.appendChild(opt);
+            elements.rendezvousSelect.appendChild(opt);
           });
         });
       }
 
-      rendezvousSelect.addEventListener('change', async () => {
-        const selectedId = rendezvousSelect.value;
-        if (!selectedId) return (rendezvousJson.textContent = 'No rendezvous selected.');
+      elements.rendezvousSelect.addEventListener('change', async () => {
+        const selectedId = elements.rendezvousSelect.value;
+        if (!selectedId) return (elements.rendezvousJson.textContent = 'No rendezvous selected.');
         const docRef = doc(db, rendezvousCollection.path, selectedId);
         currentDocRef = docRef;
         const docSnap = await getDoc(docRef);
-        rendezvousJson.textContent = JSON.stringify(docSnap.data(), null, 2);
+        const data = docSnap.data();
+        elements.rendezvousJson.textContent = JSON.stringify(data, null, 2);
+
+        elements.contactNameInput.value = data.contactName || '';
+        elements.profileURLInput.value = data.profileURL || '';
+        elements.notesInput.value = data.notes || '';
+        elements.startTimeInput.value = new Date(data.startTime.seconds * 1000).toISOString().slice(0, 16);
+        elements.endTimeInput.value = new Date(data.endTime.seconds * 1000).toISOString().slice(0, 16);
+        elements.checkInTypeInput.value = data.checkInType || 'none';
+        elements.modeInput.value = data.mode || 'normal';
       });
 
-      simulateStartPromptBtn.addEventListener('click', async () => {
+      elements.simulateStartPromptBtn.addEventListener('click', async () => {
         if (!currentDocRef) return alert('Select a rendezvous first.');
-        await addDoc(collection(currentDocRef, 'simulations'), {
-          type: 'start',
-          triggeredAt: serverTimestamp()
-        });
-        alert('Simulated start prompt.');
+        try {
+          await addDoc(collection(currentDocRef, 'simulations'), {
+            type: 'start',
+            triggeredAt: serverTimestamp()
+          });
+          alert('Simulated start prompt.');
+        } catch (e) {
+          alert('Error: ' + e.message);
+        }
       });
 
-      simulateEndPromptBtn.addEventListener('click', async () => {
+      elements.simulateEndPromptBtn.addEventListener('click', async () => {
         if (!currentDocRef) return alert('Select a rendezvous first.');
-        await addDoc(collection(currentDocRef, 'simulations'), {
-          type: 'end',
-          triggeredAt: serverTimestamp()
-        });
-        alert('Simulated end prompt.');
+        try {
+          await addDoc(collection(currentDocRef, 'simulations'), {
+            type: 'end',
+            triggeredAt: serverTimestamp()
+          });
+          alert('Simulated end prompt.');
+        } catch (e) {
+          alert('Error: ' + e.message);
+        }
       });
     });
   </script>
