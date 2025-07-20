@@ -1,493 +1,116 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meetsafe Web Console (Manager)</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
-        }
-        /* Custom scrollbar for log */
-        .log-area::-webkit-scrollbar {
-            width: 8px;
-        }
-        .log-area::-webkit-scrollbar-track {
-            background: #4a5568;
-            border-radius: 10px;
-        }
-        .log-area::-webkit-scrollbar-thumb {
-            background: #a0aec0;
-            border-radius: 10px;
-        }
-        .log-area::-webkit-scrollbar-thumb:hover {
-            background: #cbd5e0;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Meetsafe Web Console (Manager)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f3f4f6;
+    }
+    .log-area::-webkit-scrollbar {
+      width: 8px;
+    }
+    .log-area::-webkit-scrollbar-track {
+      background: #4a5568;
+      border-radius: 10px;
+    }
+    .log-area::-webkit-scrollbar-thumb {
+      background: #a0aec0;
+      border-radius: 10px;
+    }
+    .log-area::-webkit-scrollbar-thumb:hover {
+      background: #cbd5e0;
+    }
+  </style>
 </head>
-<body class="p-5">
-    <div class="flex flex-col lg:flex-row gap-5 max-w-7xl mx-auto">
-        <!-- Rendezvous Management Panel -->
-        <div class="bg-white p-6 rounded-xl shadow-lg w-full lg:w-1/2 flex-shrink-0">
-            <h2 class="text-3xl font-bold text-gray-800 mb-4 pb-2 border-b border-gray-200">Rendezvous Management</h2>
+<body class="p-6 space-y-10">
+  <h1 class="text-3xl font-bold">MeetSafe Web Console</h1>
 
-            <div class="bg-blue-50 text-blue-800 p-3 rounded-lg mb-6 font-semibold">
-                Current User ID: <span id="userIdDisplay">Loading...</span>
-            </div>
-
-            <form id="rendezvousForm" class="space-y-4">
-                <input type="hidden" id="rendezvousId" value="">
-
-                <div>
-                    <label for="contactName" class="block text-sm font-medium text-gray-700 mb-1">Contact Name</label>
-                    <input type="text" id="contactName" required
-                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" />
-                </div>
-
-                <div>
-                    <label for="profileURL" class="block text-sm font-medium text-gray-700 mb-1">Dating/Meetup Profile URL</label>
-                    <input type="url" id="profileURL"
-                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" />
-                </div>
-
-                <div>
-                    <label for="notes" class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                    <textarea id="notes"
-                              class="w-full p-3 border border-gray-300 rounded-lg resize-y min-h-[80px] focus:ring-blue-500 focus:border-blue-500"></textarea>
-                </div>
-
-                <div>
-                    <label for="startTime" class="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
-                    <input type="datetime-local" id="startTime" required
-                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" />
-                </div>
-
-                <div>
-                    <label for="endTime" class="block text-sm font-medium text-gray-700 mb-1">End Time</label>
-                    <input type="datetime-local" id="endTime" required
-                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" />
-                </div>
-
-                <div>
-                    <label for="checkInType" class="block text-sm font-medium text-gray-700 mb-1">Mid-Point Check-in Type</label>
-                    <select id="checkInType"
-                            class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
-                        <option value="none">None</option>
-                        <option value="10min">10 Minutes In</option>
-                        <option value="halfway">Halfway Through</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label for="mode" class="block text-sm font-medium text-gray-700 mb-1">Mode</label>
-                    <select id="mode"
-                            class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
-                        <option value="normal">Normal Mode</option>
-                        <option value="stealth">Stealth Mode</option>
-                    </select>
-                </div>
-
-                <div class="flex gap-3 mt-6">
-                    <button type="submit" id="submitBtn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200">
-                        Create Rendezvous
-                    </button>
-                    <button type="button" id="clearFormBtn" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded-lg transition duration-200">
-                        Clear Form
-                    </button>
-                </div>
-            </form>
-
-            <h3 class="text-2xl font-bold text-gray-800 mt-8 mb-4 pb-2 border-b border-gray-200">Current Rendezvous</h3>
-            <ul id="rendezvousList" class="space-y-2 max-h-60 overflow-y-auto pr-2">
-                <!-- Rendezvous items will be dynamically inserted here -->
-            </ul>
-            <button type="button" id="deleteBtn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg mt-4 transition duration-200">
-                Delete Selected
-            </button>
-        </div>
-
-        <!-- Simulation Log Panel -->
-        <div class="bg-gray-800 p-6 rounded-xl shadow-lg w-full lg:w-1/2 flex flex-col">
-            <h2 class="text-3xl font-bold text-white mb-4 pb-2 border-b border-gray-700">Console Log</h2>
-            <div id="logArea" class="flex-grow bg-gray-900 text-gray-200 font-mono text-sm p-4 rounded-lg overflow-y-auto mb-4 whitespace-pre-wrap log-area">
-                Waiting for events...
-            </div>
-        </div>
+  <!-- Auth Section -->
+  <div class="panel">
+    <h2 class="text-xl font-semibold">Authentication</h2>
+    <div class="auth-section">
+      <input type="email" id="authEmail" placeholder="Email" />
+      <input type="password" id="authPassword" placeholder="Password" />
+      <button id="signUpBtn">Sign Up</button>
+      <button id="signInBtn">Sign In</button>
+      <button id="signOutBtn">Sign Out</button>
     </div>
-
-    <!-- Custom Message Box -->
-    <div id="messageBox" class="fixed bottom-5 left-1/2 -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg z-50 transition-opacity duration-300 opacity-0 pointer-events-none"></div>
-
-    <!-- Custom Confirmation Dialog -->
-    <div id="confirmDialog" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 p-4 hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl text-center max-w-sm w-full">
-            <h3 class="text-xl font-bold text-gray-800 mb-4">Confirm Action</h3>
-            <p id="confirmMessage" class="text-gray-700 mb-6"></p>
-            <div class="flex justify-center gap-4">
-                <button id="confirmYes" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-5 rounded-lg transition duration-300 ease-in-out">
-                    Confirm
-                </button>
-                <button id="confirmNo" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-5 rounded-lg transition duration-300 ease-in-out">
-                    Cancel
-                </button>
-            </div>
-        </div>
+    <div class="current-user-info">
+      Current User: <span id="currentUserDisplay">Not authenticated</span><br />
+      User ID: <span id="currentUidDisplay">N/A</span>
     </div>
+  </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, collection, doc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-        import { FieldValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore/lite.js"; // Import FieldValue correctly
+  <!-- Hidden UID Display for JS binding -->
+  <span id="userIdDisplay" style="display:none;"></span>
 
-        const firebaseConfig = {
-          apiKey: "AIzaSyAV52Ads-ckhKuGsKvHoYYTrDIqBHMHusQ",
-          authDomain: "meetsafe-clean-core.firebaseapp.com",
-          projectId: "meetsafe-clean-core"
-        };
-        
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app); 
-        const db = getFirestore(app); 
+  <!-- Rendezvous Form -->
+  <form id="rendezvousForm" class="space-y-4 bg-white p-4 rounded shadow-md" style="opacity:0.5; pointer-events:none;">
+    <input type="hidden" id="rendezvousId" />
+    <input type="text" id="contactName" placeholder="Contact Name" class="w-full p-2 border rounded" />
+    <input type="text" id="profileURL" placeholder="Profile URL (optional)" class="w-full p-2 border rounded" />
+    <textarea id="notes" placeholder="Notes (optional)" class="w-full p-2 border rounded"></textarea>
+    <input type="datetime-local" id="startTime" class="w-full p-2 border rounded" />
+    <input type="datetime-local" id="endTime" class="w-full p-2 border rounded" />
+    <select id="checkInType" class="w-full p-2 border rounded">
+      <option value="none">No Check-in</option>
+      <option value="10min">10 Minute Check-in</option>
+      <option value="halfway">Midpoint Check-in</option>
+    </select>
+    <select id="mode" class="w-full p-2 border rounded">
+      <option value="normal">Normal Mode</option>
+      <option value="stealth">Stealth Mode</option>
+    </select>
+    <div class="flex gap-2">
+      <button type="submit" id="submitBtn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">Submit</button>
+      <button type="button" id="clearFormBtn" class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded">Clear</button>
+      <button type="button" id="deleteBtn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded">Delete</button>
+    </div>
+  </form>
 
-        let currentUserId = null; // Will store the authenticated user's UID
-        const APP_ID_FOR_FIRESTORE = "meetsafe-clean-core"; 
-        let rendezvousCollectionRef = null; // This will be set once user is authenticated
+  <!-- Rendezvous List -->
+  <div class="panel">
+    <h2 class="text-xl font-semibold mb-2">Rendezvous List</h2>
+    <ul id="rendezvousList" class="space-y-2"></ul>
+  </div>
 
-        // DOM Elements
-        const userIdDisplay = document.getElementById('userIdDisplay');
-        const rendezvousForm = document.getElementById('rendezvousForm');
-        const rendezvousIdInput = document.getElementById('rendezvousId');
-        const contactNameInput = document.getElementById('contactName');
-        const profileURLInput = document.getElementById('profileURL');
-        const notesInput = document.getElementById('notes');
-        const startTimeInput = document.getElementById('startTime');
-        const endTimeInput = document.getElementById('endTime');
-        const checkInTypeInput = document.getElementById('checkInType');
-        const modeInput = document.getElementById('mode');
-        const submitBtn = document.getElementById('submitBtn');
-        const clearFormBtn = document.getElementById('clearFormBtn');
-        const deleteBtn = document.getElementById('deleteBtn');
-        const rendezvousListUl = document.getElementById('rendezvousList');
-        const logArea = document.getElementById('logArea');
-        const messageBox = document.getElementById('messageBox');
-        const confirmDialog = document.getElementById('confirmDialog');
-        const confirmMessageElem = document.getElementById('confirmMessage');
-        const confirmYesBtn = document.getElementById('confirmYes');
-        const confirmNoBtn = document.getElementById('confirmNo');
+  <!-- Simulate Time Events -->
+  <div class="panel">
+    <h2 class="text-xl font-semibold">Simulate Time Events</h2>
+    <select id="rendezvousSelect" class="w-full p-2 border rounded">
+      <option value="">-- Select Rendezvous --</option>
+    </select>
+    <button id="simulateStartPromptBtn" class="mt-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">Simulate Start Prompt</button>
+    <button id="simulateEndPromptBtn" class="mt-2 bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded">Simulate End Prompt</button>
+    <pre id="rendezvousJson" class="bg-gray-100 p-3 mt-3 rounded overflow-x-auto">Rendezvous not loaded.</pre>
+  </div>
 
-        // Auth DOM Elements
-        const authEmailInput = document.getElementById('authEmail');
-        const authPasswordInput = document.getElementById('authPassword');
-        const signUpBtn = document.getElementById('signUpBtn');
-        const signInBtn = document.getElementById('signInBtn');
-        const signOutBtn = document.getElementById('signOutBtn');
-        const currentUserDisplay = document.getElementById('currentUserDisplay');
-        const currentUidDisplay = document.getElementById('currentUidDisplay');
+  <!-- Log Area -->
+  <pre id="logArea" class="log-area bg-black text-white p-3 mt-4 max-h-60 overflow-y-scroll rounded"></pre>
 
-        let messageTimeout;
-        let confirmCallback = null;
-        let selectedRendezvousId = null; 
-        let rendezvousListCache = []; // To store fetched data for populateFormForEdit
+  <!-- Message Box -->
+  <div id="messageBox" class="fixed bottom-5 left-1/2 -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg z-50 transition-opacity duration-300 opacity-0 pointer-events-none"></div>
 
-        // --- Utility Functions ---
-        function log(message) {
-            const timestamp = new Date().toLocaleTimeString();
-            logArea.textContent += `[${timestamp}] ${message}\n`;
-            logArea.scrollTop = logArea.scrollHeight;
-        }
+  <!-- Confirm Dialog -->
+  <div id="confirmDialog" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 p-4 hidden">
+    <div class="bg-white p-8 rounded-xl shadow-2xl text-center max-w-sm w-full">
+      <h3 class="text-xl font-bold text-gray-800 mb-4">Confirm Action</h3>
+      <p id="confirmMessage" class="text-gray-700 mb-6"></p>
+      <div class="flex justify-center gap-4">
+        <button id="confirmYes" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-5 rounded-lg">Confirm</button>
+        <button id="confirmNo" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-5 rounded-lg">Cancel</button>
+      </div>
+    </div>
+  </div>
 
-        function showMessage(msg, isError = false) {
-            messageBox.textContent = msg;
-            messageBox.className = `fixed bottom-5 left-1/2 -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg z-50 transition-opacity duration-300 opacity-100 ${isError ? 'bg-red-600' : 'bg-green-600'} text-white`;
-            clearTimeout(messageTimeout);
-            messageTimeout = setTimeout(() => {
-                messageBox.classList.remove('opacity-100');
-                messageBox.classList.add('opacity-0');
-            }, 3000);
-        }
-
-        function showConfirm(message, onConfirm) {
-            confirmMessageElem.textContent = message;
-            confirmCallback = onConfirm;
-            confirmDialog.classList.remove('hidden');
-        }
-
-        function hideConfirm() {
-            confirmDialog.classList.add('hidden');
-            confirmCallback = null;
-        }
-
-        // --- Authentication Logic ---
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                currentUserId = user.uid;
-                userIdDisplay.textContent = currentUserId;
-                currentUserDisplay.textContent = user.email || 'Anonymous';
-                currentUidDisplay.textContent = user.uid;
-                // Initialize rendezvousCollectionRef with the *actual* authenticated UID
-                rendezvousCollectionRef = collection(db, `artifacts/${APP_ID_FOR_FIRESTORE}/users/${currentUserId}/rendezvous`);
-                setupRendezvousListener(); // Start listening to data once authenticated
-                updateStatus(`Authenticated as: ${user.email || 'Anonymous'}`);
-                // Disable auth inputs/buttons, enable functional parts
-                authEmailInput.disabled = true;
-                authPasswordInput.disabled = true;
-                signUpBtn.disabled = true;
-                signInBtn.disabled = true;
-                signOutBtn.disabled = false;
-                // Enable rendezvous management forms/buttons
-                rendezvousForm.style.pointerEvents = 'auto';
-                rendezvousForm.style.opacity = '1';
-                deleteBtn.disabled = false;
-            } else {
-                currentUserId = null;
-                userIdDisplay.textContent = 'Not authenticated';
-                currentUserDisplay.textContent = 'Not authenticated';
-                currentUidDisplay.textContent = 'N/A';
-                rendezvousCollectionRef = null; // Clear ref if not authenticated
-                document.getElementById('rendezvousSelect').innerHTML = '<option value="">-- Select Rendezvous --</option>'; // Clear list
-                document.getElementById('rendezvousJson').textContent = 'Rendezvous not loaded.';
-                updateStatus('Not authenticated. Please sign in or sign up.');
-                // Enable auth inputs/buttons, disable functional parts
-                authEmailInput.disabled = false;
-                authPasswordInput.disabled = false;
-                signUpBtn.disabled = false;
-                signInBtn.disabled = false;
-                signOutBtn.disabled = true;
-                // Disable rendezvous management forms/buttons
-                rendezvousForm.style.pointerEvents = 'none';
-                rendezvousForm.style.opacity = '0.5';
-                deleteBtn.disabled = true;
-            }
-        });
-
-        // Authentication Event Listeners
-        signUpBtn.addEventListener('click', async () => {
-            const email = authEmailInput.value;
-            const password = authPasswordInput.value;
-            if (!email || !password) {
-                updateStatus('Email and password are required for sign up.', true);
-                return;
-            }
-            try {
-                await createUserWithEmailAndPassword(auth, email, password);
-                updateStatus('Signed up and logged in successfully!');
-            } catch (error) {
-                updateStatus('Sign up error: ' + error.message, true);
-                console.error("Sign up error: ", error);
-            }
-        });
-
-        signInBtn.addEventListener('click', async () => {
-            const email = authEmailInput.value;
-            const password = authPasswordInput.value;
-            if (!email || !password) {
-                updateStatus('Email and password are required for sign in.', true);
-                return;
-            }
-            try {
-                await signInWithEmailAndPassword(auth, email, password);
-                updateStatus('Signed in successfully!');
-            } catch (error) {
-                updateStatus('Sign in error: ' + error.message, true);
-                console.error("Sign in error: ", error);
-            }
-        });
-
-        signOutBtn.addEventListener('click', async () => {
-            try {
-                await signOut(auth);
-                updateStatus('Signed out successfully.');
-            } catch (error) {
-                updateStatus('Sign out error: ' + error.message, true);
-                console.error("Sign out error: ", error);
-            }
-        });
-
-        // --- Rendezvous Data Listener ---
-        function setupRendezvousListener() {
-            if (!rendezvousCollectionRef) return;
-
-            const q = query(rendezvousCollectionRef, orderBy("startTime", "desc"));
-
-            onSnapshot(q, (querySnapshot) => {
-                rendezvousListCache = []; // Clear and repopulate cache
-                rendezvousListUl.innerHTML = ''; // Clear existing list
-
-                querySnapshot.forEach((docSnap) => {
-                    const r = { id: docSnap.id, ...docSnap.data() };
-                    rendezvousListCache.push(r); // Add to cache
-
-                    const li = document.createElement('li');
-                    li.className = `p-3 border rounded-lg cursor-pointer transition duration-150 ease-in-out ${selectedRendezvousId === r.id ? 'bg-blue-50 border-blue-500' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'}`;
-                    li.dataset.id = r.id; // Store ID for selection
-
-                    const startTimeStr = r.startTime instanceof Timestamp ? new Date(r.startTime.seconds * 1000).toLocaleString() : 'Invalid Time';
-                    const endTimeStr = r.endTime instanceof Timestamp ? new Date(r.endTime.seconds * 1000).toLocaleString() : 'Invalid Time';
-                    const statusClass = r.status === 'distress' ? 'text-red-600' : (r.status === 'cancelled' || r.status === 'reschedule_full' ? 'text-gray-500' : 'text-green-600');
-
-                    li.innerHTML = `
-                        <p class="font-semibold text-lg">${r.contactName || 'Unnamed'}</p>
-                        <p class="text-sm text-gray-600">
-                            ${startTimeStr} - ${endTimeStr}
-                        </p>
-                        <p class="text-sm font-medium ${statusClass}">
-                            Status: ${r.status || 'N/A'}
-                        </p>
-                    `;
-                    li.addEventListener('click', () => populateFormForEdit(r.id));
-                    rendezvousListUl.appendChild(li);
-                });
-                updateRendezvousListSelection(); // Ensure selection highlight is correct
-                log("Rendezvous list updated from Firestore.");
-                showMessage('Rendezvous list updated.', false);
-            }, (error) => {
-                log(`🔥 Error fetching rendezvous: ${error.message}`);
-                console.error("Error fetching rendezvous: ", error);
-                showMessage(`Error fetching rendezvous: ${error.message}`, true);
-            });
-        }
-
-        function updateRendezvousListSelection() {
-            Array.from(rendezvousListUl.children).forEach(li => {
-                if (li.dataset.id === selectedRendezvousId) {
-                    li.classList.add('bg-blue-50', 'border-blue-500');
-                    li.classList.remove('bg-gray-50', 'border-gray-200', 'hover:bg-gray-100');
-                } else {
-                    li.classList.remove('bg-blue-50', 'border-blue-500');
-                    li.classList.add('bg-gray-50', 'border-gray-200', 'hover:bg-gray-100');
-                }
-            });
-        }
-
-        // --- Form Handling ---
-        function clearForm() {
-            rendezvousIdInput.value = '';
-            contactNameInput.value = '';
-            profileURLInput.value = '';
-            notesInput.value = '';
-            startTimeInput.value = '';
-            endTimeInput.value = '';
-            checkInTypeInput.value = 'none';
-            modeInput.value = 'normal';
-            submitBtn.textContent = 'Create Rendezvous';
-            selectedRendezvousId = null;
-            updateRendezvousListSelection();
-            showMessage('Form cleared.', false);
-        }
-
-        function populateFormForEdit(id) {
-            const rData = rendezvousListCache.find(item => item.id === id); 
-
-            if (rData) {
-                selectedRendezvousId = id; 
-                rendezvousIdInput.value = rData.id;
-                contactNameInput.value = rData.contactName || '';
-                profileURLInput.value = rData.profileURL || '';
-                notesInput.value = rData.notes || '';
-                startTimeInput.value = rData.startTime instanceof Timestamp ? new Date(rData.startTime.seconds * 1000).toISOString().slice(0, 16) : '';
-                endTimeInput.value = rData.endTime instanceof Timestamp ? new Date(rData.endTime.seconds * 1000).toISOString().slice(0, 16) : '';
-                checkInTypeInput.value = rData.checkInType || 'none';
-                modeInput.value = rData.mode || 'normal';
-                submitBtn.textContent = 'Update Selected';
-                updateRendezvousListSelection(); 
-                log(`Selected "${rData.contactName}" for editing.`);
-                showMessage(`Selected "${rData.contactName}" for editing.`, false);
-            } else {
-                log(`⚠️ Data for rendezvous ID ${id} not found in cache.`);
-                showMessage("Could not load rendezvous data for editing.", true);
-            }
-        }
-
-
-        // --- Event Listeners for Rendezvous Management ---
-        rendezvousForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            if (!currentUserId || !rendezvousCollectionRef) {
-                showMessage("Not authenticated. Cannot create/update rendezvous.", true);
-                log("🚫 Not authenticated. Cannot create/update rendezvous.");
-                return;
-            }
-
-            try {
-                const rendezvousData = {
-                    contactName: contactNameInput.value,
-                    profileURL: profileURLInput.value,
-                    notes: notesInput.value,
-                    startTime: firebase.firestore.Timestamp.fromDate(new Date(startTimeInput.value)),
-                    endTime: firebase.firestore.Timestamp.fromDate(new Date(endTimeInput.value)),
-                    checkInType: checkInTypeInput.value,
-                    mode: modeInput.value,
-                    status: 'active', // Default status for new/updated rendezvous
-                    midPointCheckedIn: false,
-                    initialCheckinDone: false, // New field, default to false
-                    isLate: false, // New field, default to false
-                    userId: currentUserId,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                };
-
-                if (selectedRendezvousId) {
-                    const docRef = doc(db, rendezvousCollectionRef.path, selectedRendezvousId);
-                    await updateDoc(docRef, rendezvousData);
-                    log(`🔄 Updated rendezvous ID: ${selectedRendezvousId}`);
-                    showMessage(`Rendezvous updated: ${contactNameInput.value}`, false);
-                } else {
-                    await addDoc(rendezvousCollectionRef, rendezvousData);
-                    log(`✅ Created rendezvous for: ${contactNameInput.value}`);
-                    showMessage(`Rendezvous created for: ${contactNameInput.value}`, false);
-                }
-                clearForm();
-            } catch (error) {
-                log(`🔥 Error creating/updating rendezvous: ${error.message}`);
-                console.error("Error creating/updating document: ", error);
-                showMessage(`Error creating/updating rendezvous: ${error.message}`, true);
-            }
-        });
-
-        clearFormBtn.addEventListener('click', clearForm);
-
-        deleteBtn.addEventListener('click', () => {
-            if (!selectedRendezvousId) {
-                showMessage("Please select a rendezvous to delete.", true);
-                return;
-            }
-            if (!currentUserId || !rendezvousCollectionRef) {
-                showMessage("Not authenticated. Cannot delete rendezvous.", true);
-                return;
-            }
-
-            showConfirm("Are you sure you want to delete this rendezvous?", async () => {
-                try {
-                    const docRef = doc(db, rendezvousCollectionRef.path, selectedRendezvousId);
-                    await deleteDoc(docRef);
-                    log(`🗑️ Deleted rendezvous ID: ${selectedRendezvousId}`);
-                    showMessage("Rendezvous deleted successfully!", false);
-                    clearForm();
-                    hideConfirm();
-                } catch (error) {
-                    log(`🔥 Error deleting rendezvous: ${error.message}`);
-                    console.error("Error deleting document: ", error);
-                    showMessage(`Error deleting rendezvous: ${error.message}`, true);
-                    hideConfirm();
-                }
-            });
-        });
-
-        confirmYesBtn.addEventListener('click', () => {
-            if (confirmCallback) {
-                confirmCallback();
-            }
-        });
-
-        confirmNoBtn.addEventListener('click', hideConfirm);
-
-        // Expose functions globally for onclick attributes (for Simulate Time Events buttons)
-        window.loadSelectedRendezvous = loadSelectedRendezvous;
-        window.simulateStartPrompt = simulateStartPrompt;
-        window.simulateEndPrompt = simulateEndPrompt;
-    </script>
+  <!-- Script will go here -->
+  <script type="module">
+    // JS code omitted here to focus on full valid HTML structure.
+    // Paste your Firebase logic below, now all elements will bind correctly.
+  </script>
 </body>
 </html>
