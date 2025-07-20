@@ -60,10 +60,10 @@
   <div id="checkinPrompt" class="hidden bg-yellow-100 border border-yellow-300 text-yellow-900 rounded p-4">
     <p class="font-medium mb-2">Start check-in: What would you like to do?</p>
     <div class="space-x-2">
-      <button class="bg-blue-500 text-white px-3 py-1 rounded">Start on Time</button>
-      <button class="bg-yellow-500 text-white px-3 py-1 rounded">Running Late</button>
-      <button class="bg-orange-500 text-white px-3 py-1 rounded">Reschedule</button>
-      <button class="bg-red-500 text-white px-3 py-1 rounded">Cancel</button>
+      <button class="bg-blue-500 text-white px-3 py-1 rounded" onclick="logToMonitor('User selected: Start on Time')">Start on Time</button>
+      <button class="bg-yellow-500 text-white px-3 py-1 rounded" onclick="logToMonitor('User selected: Running Late')">Running Late</button>
+      <button class="bg-orange-500 text-white px-3 py-1 rounded" onclick="logToMonitor('User selected: Reschedule')">Reschedule</button>
+      <button class="bg-red-500 text-white px-3 py-1 rounded" onclick="logToMonitor('User selected: Cancel')">Cancel</button>
     </div>
   </div>
 
@@ -82,6 +82,7 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
     let currentUser = null;
+    let promptedDocs = new Set();
 
     const logToMonitor = (msg) => {
       const area = document.getElementById('monitorLog');
@@ -96,7 +97,8 @@
       docs.forEach(docSnap => {
         const data = docSnap.data();
         const start = data.startTime?.seconds;
-        if (start && Math.abs(start - now) < 60 && !data.initialCheckinDone) {
+        if (start && Math.abs(start - now) < 60 && !data.initialCheckinDone && !promptedDocs.has(docSnap.id)) {
+          promptedDocs.add(docSnap.id);
           logToMonitor(`Start time reached for ${data.contactName}. Show check-in options.`);
           document.getElementById('checkinPrompt').classList.remove('hidden');
         }
