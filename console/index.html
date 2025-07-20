@@ -29,7 +29,6 @@
 <body class="p-6 space-y-10">
   <h1 class="text-3xl font-bold">MeetSafe Web Console</h1>
 
-  <!-- Auth Section -->
   <div class="panel">
     <h2 class="text-xl font-semibold">Authentication</h2>
     <div class="auth-section">
@@ -45,10 +44,8 @@
     </div>
   </div>
 
-  <!-- Hidden UID Display for JS binding -->
   <span id="userIdDisplay" style="display:none;"></span>
 
-  <!-- Rendezvous Form -->
   <form id="rendezvousForm" class="space-y-4 bg-white p-4 rounded shadow-md" style="opacity:0.5; pointer-events:none;">
     <input type="hidden" id="rendezvousId" />
     <input type="text" id="contactName" placeholder="Contact Name" class="w-full p-2 border rounded" />
@@ -72,13 +69,11 @@
     </div>
   </form>
 
-  <!-- Rendezvous List -->
   <div class="panel">
     <h2 class="text-xl font-semibold mb-2">Rendezvous List</h2>
     <ul id="rendezvousList" class="space-y-2"></ul>
   </div>
 
-  <!-- Simulate Time Events -->
   <div class="panel">
     <h2 class="text-xl font-semibold">Simulate Time Events</h2>
     <select id="rendezvousSelect" class="w-full p-2 border rounded">
@@ -89,13 +84,10 @@
     <pre id="rendezvousJson" class="bg-gray-100 p-3 mt-3 rounded overflow-x-auto">Rendezvous not loaded.</pre>
   </div>
 
-  <!-- Log Area -->
   <pre id="logArea" class="log-area bg-black text-white p-3 mt-4 max-h-60 overflow-y-scroll rounded"></pre>
 
-  <!-- Message Box -->
   <div id="messageBox" class="fixed bottom-5 left-1/2 -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg z-50 transition-opacity duration-300 opacity-0 pointer-events-none"></div>
 
-  <!-- Confirm Dialog -->
   <div id="confirmDialog" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 p-4 hidden">
     <div class="bg-white p-8 rounded-xl shadow-2xl text-center max-w-sm w-full">
       <h3 class="text-xl font-bold text-gray-800 mb-4">Confirm Action</h3>
@@ -107,10 +99,77 @@
     </div>
   </div>
 
-  <!-- Script will go here -->
   <script type="module">
-    // JS code omitted here to focus on full valid HTML structure.
-    // Paste your Firebase logic below, now all elements will bind correctly.
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAV52Ads-ckhKuGsKvHoYYTrDIqBHMHusQ",
+      authDomain: "meetsafe-clean-core.firebaseapp.com",
+      projectId: "meetsafe-clean-core"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const authEmailInput = document.getElementById('authEmail');
+      const authPasswordInput = document.getElementById('authPassword');
+      const signUpBtn = document.getElementById('signUpBtn');
+      const signInBtn = document.getElementById('signInBtn');
+      const signOutBtn = document.getElementById('signOutBtn');
+      const currentUserDisplay = document.getElementById('currentUserDisplay');
+      const currentUidDisplay = document.getElementById('currentUidDisplay');
+
+      signUpBtn.addEventListener('click', async () => {
+        const email = authEmailInput.value;
+        const password = authPasswordInput.value;
+        if (!email || !password) {
+          alert('Email and password are required for sign up.');
+          return;
+        }
+        try {
+          await createUserWithEmailAndPassword(auth, email, password);
+          alert('Signed up and logged in successfully!');
+        } catch (error) {
+          alert('Sign up error: ' + error.message);
+        }
+      });
+
+      signInBtn.addEventListener('click', async () => {
+        const email = authEmailInput.value;
+        const password = authPasswordInput.value;
+        if (!email || !password) {
+          alert('Email and password are required for sign in.');
+          return;
+        }
+        try {
+          await signInWithEmailAndPassword(auth, email, password);
+          alert('Signed in successfully!');
+        } catch (error) {
+          alert('Sign in error: ' + error.message);
+        }
+      });
+
+      signOutBtn.addEventListener('click', async () => {
+        try {
+          await signOut(auth);
+          alert('Signed out successfully.');
+        } catch (error) {
+          alert('Sign out error: ' + error.message);
+        }
+      });
+
+      onAuthStateChanged(auth, (user) => {
+        if (user) {
+          currentUserDisplay.textContent = user.email || 'Anonymous';
+          currentUidDisplay.textContent = user.uid;
+        } else {
+          currentUserDisplay.textContent = 'Not authenticated';
+          currentUidDisplay.textContent = 'N/A';
+        }
+      });
+    });
   </script>
 </body>
 </html>
