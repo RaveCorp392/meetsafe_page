@@ -88,6 +88,7 @@
     const db = getFirestore(app);
     let currentUser = null;
     let promptedDocId = null;
+    const promptedDocs = new Set();
 
     const brisbaneTimeString = (date = new Date()) =>
       date.toLocaleTimeString('en-AU', { timeZone: 'Australia/Brisbane', hour12: false });
@@ -111,8 +112,9 @@
       docs.forEach(docSnap => {
         const data = docSnap.data();
         const start = data.startTime?.seconds;
-        if (start && now >= start && now - start < 60 && !data.initialCheckinDone) {
+        if (start && now >= start && now - start < 60 && !data.initialCheckinDone && !promptedDocs.has(docSnap.id)) {
           promptedDocId = docSnap.id;
+          promptedDocs.add(promptedDocId);
           logToMonitor(`Start time reached for ${data.contactName}. Show check-in options.`);
           document.getElementById('checkinPrompt').classList.remove('hidden');
         }
