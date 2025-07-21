@@ -1,147 +1,125 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
   <title>MeetSafe Web Console</title>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"></script>
-  <link href="https://cdn.tailwindcss.com" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
-<body class="bg-gray-100 p-4 text-black">
+<body class="bg-gray-100 text-black">
+  <div class="max-w-2xl mx-auto p-4">
+    <h1 class="text-2xl font-bold mb-4">MeetSafe Web Console</h1>
 
-<h2 class="text-2xl font-bold">MeetSafe Web Console</h2>
+    <div class="mb-4">
+      <strong>Authentication</strong><br />
+      <input id="email" type="email" placeholder="Email" class="border p-1" />
+      <input id="password" type="password" placeholder="Password" class="border p-1" />
+      <button onclick="signUp()" class="bg-blue-500 text-white px-2 py-1">Sign Up</button>
+      <button onclick="signIn()" class="bg-green-500 text-white px-2 py-1">Sign In</button>
+      <button onclick="signOut()" class="bg-red-500 text-white px-2 py-1">Sign Out</button>
+      <p>Current User: <span id="currentUserEmail">-</span></p>
+      <p>User ID: <span id="currentUserId">-</span></p>
+    </div>
 
-<!-- Auth -->
-<div>
-  <h3 class="font-semibold mt-4">Authentication</h3>
-  <input id="email" placeholder="Email" class="border p-1" />
-  <input id="password" type="password" placeholder="Password" class="border p-1" />
-  <button onclick="signUp()" class="bg-blue-500 text-white px-2">Sign Up</button>
-  <button onclick="signIn()" class="bg-green-500 text-white px-2">Sign In</button>
-  <button onclick="signOut()" class="bg-red-500 text-white px-2">Sign Out</button>
-  <p id="user-info" class="text-sm mt-2"></p>
-</div>
+    <div class="mb-4 border p-4 bg-white shadow rounded">
+      <h2 class="font-semibold mb-2">Create Rendezvous</h2>
+      <input id="name" placeholder="Name" class="border p-1 w-full mb-2" />
+      <select id="checkinType" class="border p-1 w-full mb-2">
+        <option>No Check-In</option>
+        <option>10-Minute Check-In</option>
+        <option>Midpoint Check-In</option>
+      </select>
+      <input id="startTime" type="datetime-local" class="border p-1 w-full mb-2" />
+      <input id="endTime" type="datetime-local" class="border p-1 w-full mb-2" />
+      <button onclick="createRendezvous()" class="bg-green-600 text-white px-4 py-2">Submit</button>
+    </div>
 
-<!-- Create Rendezvous -->
-<div class="bg-white shadow p-4 mt-4 rounded w-full max-w-lg">
-  <h3 class="font-semibold mb-2">Create Rendezvous</h3>
-  <input id="contactName" placeholder="Name" class="border w-full p-1 mb-2" />
-  <select id="checkInType" class="border w-full p-1 mb-2">
-    <option>No Check-In</option>
-    <option>10-Minute Check-In</option>
-    <option>Midpoint Check-In</option>
-  </select>
-  <input id="startTime" type="datetime-local" class="border w-full p-1 mb-2" />
-  <input id="endTime" type="datetime-local" class="border w-full p-1 mb-2" />
-  <button onclick="createRendezvous()" class="bg-green-600 text-white px-3 py-1 rounded">Submit</button>
-</div>
+    <div>
+      <p><strong>Current Time</strong></p>
+      <p id="currentTime" class="mb-2"></p>
+    </div>
 
-<!-- Check-In Prompt -->
-<div id="checkin-box" class="mt-4 hidden bg-yellow-100 p-4 rounded"></div>
+    <div class="bg-black text-white p-3 font-mono text-sm h-64 overflow-auto" id="logOutput"></div>
+  </div>
 
-<!-- Logs -->
-<p class="mt-4 font-mono">Current Time<br><span id="clock"></span></p>
-<pre id="monitor" class="bg-black text-green-300 text-xs p-2 mt-2 h-64 overflow-y-scroll rounded"></pre>
-
-<script>
-  // Firebase setup
-  const firebaseConfig = {
-    apiKey: "AIzaSyAV52Ads-ckhKuGsKvHoYYTrDIqBHMHusQ",
-    authDomain: "meetsafe-clean-core.firebaseapp.com",
-    projectId: "meetsafe-clean-core",
-    storageBucket: "meetsafe-clean-core.appspot.com",
-    messagingSenderId: "970833854934",
-    appId: "1:970833854934:web:5ae847503baa2c6c552477",
-    measurementId: "G-E6LBFE2SEB"
-  };
-
-  firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
-  const db = firebase.firestore();
-
-  let currentUser = null;
-
-  auth.onAuthStateChanged(user => {
-    currentUser = user;
-    document.getElementById('user-info').textContent = user
-      ? `Current User: ${user.email} | User ID: ${user.uid}`
-      : "Not signed in.";
-  });
-
-  function signUp() {
-    const email = emailInput.value;
-    const pass = passwordInput.value;
-    auth.createUserWithEmailAndPassword(email, pass);
-  }
-
-  function signIn() {
-    const email = emailInput.value;
-    const pass = passwordInput.value;
-    auth.signInWithEmailAndPassword(email, pass);
-  }
-
-  function signOut() {
-    auth.signOut();
-  }
-
-  function createRendezvous() {
-    const name = contactName.value;
-    const type = checkInType.value;
-    const start = new Date(startTime.value);
-    const end = new Date(endTime.value);
-
-    const doc = {
-      contactName: name,
-      checkInType: type,
-      startTime: start,
-      endTime: end,
-      createdAt: new Date(),
-      createdBy: currentUser.uid,
-      responses: []
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyAV52Ads-ckhKuGsKvHoYYTrDIqBHMHusQ",
+      authDomain: "meetsafe-clean-core.firebaseapp.com",
+      projectId: "meetsafe-clean-core",
+      storageBucket: "meetsafe-clean-core.appspot.com",
+      messagingSenderId: "970833854934",
+      appId: "1:970833854934:web:5ae847503baa2c6c552477",
+      measurementId: "G-E6LBFE2SEB"
     };
 
-    db.collection("rendezvous").add(doc).then(() => {
-      log(`[${new Date().toLocaleTimeString()}] Created rendezvous: ${name}`);
-    });
-  }
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    let currentUser = null;
 
-  function log(msg) {
-    const monitor = document.getElementById("monitor");
-    monitor.textContent += `${msg}\n`;
-    monitor.scrollTop = monitor.scrollHeight;
-  }
-
-  function showCheckInPrompt(type) {
-    const box = document.getElementById("checkin-box");
-    box.classList.remove("hidden");
-    if (type === "start") {
-      box.innerHTML = `
-        <p>Start check-in: What would you like to do?</p>
-        <button onclick="logCheck('start', 'on_time')" class="bg-blue-500 text-white px-2 py-1">Start on Time</button>
-        <button onclick="logCheck('start', 'late')" class="bg-yellow-500 text-white px-2 py-1">Running Late</button>
-        <button onclick="logCheck('start', 'reschedule')" class="bg-orange-500 text-white px-2 py-1">Reschedule</button>
-        <button onclick="logCheck('start', 'cancel')" class="bg-red-500 text-white px-2 py-1">Cancel</button>
-      `;
-    } else if (type === "end" || type === "midpoint") {
-      box.innerHTML = `
-        <p>${type === "end" ? "End" : "Midpoint"} check-in: Are you okay?</p>
-        <button onclick="logCheck('${type}', 'ok')" class="bg-green-500 text-white px-2 py-1">Yes</button>
-        <button onclick="logCheck('${type}', 'not_ok')" class="bg-red-500 text-white px-2 py-1">No</button>
-      `;
+    function log(msg) {
+      const output = document.getElementById("logOutput");
+      output.innerText += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
+      output.scrollTop = output.scrollHeight;
     }
-  }
 
-  function logCheck(stage, result) {
-    log(`[${new Date().toLocaleTimeString()}] Logged ${stage} check-in: ${result}`);
-    document.getElementById("checkin-box").classList.add("hidden");
-    // Real DB update logic goes here
-  }
+    firebase.auth().onAuthStateChanged((user) => {
+      if (user) {
+        currentUser = user;
+        document.getElementById("currentUserEmail").innerText = user.email;
+        document.getElementById("currentUserId").innerText = user.uid;
+        log(`Signed in as ${user.email}`);
+      } else {
+        currentUser = null;
+        document.getElementById("currentUserEmail").innerText = "-";
+        document.getElementById("currentUserId").innerText = "-";
+      }
+    });
 
-  // Clock
-  setInterval(() => {
-    document.getElementById("clock").textContent = new Date().toLocaleTimeString();
-  }, 1000);
-</script>
+    function signUp() {
+      const email = document.getElementById("email").value;
+      const pass = document.getElementById("password").value;
+      firebase.auth().createUserWithEmailAndPassword(email, pass).catch(err => log(err.message));
+    }
+
+    function signIn() {
+      const email = document.getElementById("email").value;
+      const pass = document.getElementById("password").value;
+      firebase.auth().signInWithEmailAndPassword(email, pass).catch(err => log(err.message));
+    }
+
+    function signOut() {
+      firebase.auth().signOut();
+    }
+
+    function createRendezvous() {
+      if (!currentUser) return log("You must be signed in");
+
+      const name = document.getElementById("name").value;
+      const checkinType = document.getElementById("checkinType").value;
+      const start = new Date(document.getElementById("startTime").value);
+      const end = new Date(document.getElementById("endTime").value);
+
+      const doc = {
+        user: currentUser.uid,
+        name,
+        checkinType,
+        startTime: firebase.firestore.Timestamp.fromDate(start),
+        endTime: firebase.firestore.Timestamp.fromDate(end),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        status: "scheduled"
+      };
+
+      db.collection("rendezvous").add(doc).then(() => {
+        log(`Created rendezvous: ${name}`);
+      }).catch((e) => log(`Error: ${e.message}`));
+    }
+
+    setInterval(() => {
+      document.getElementById("currentTime").innerText = new Date().toLocaleTimeString();
+    }, 1000);
+  </script>
 </body>
 </html>
