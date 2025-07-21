@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Meetsafe Web Console (Manager)</title>
+  <title>MeetSafe Web Console</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body {
@@ -67,8 +67,8 @@
     <div class="space-x-2">
       <button class="bg-blue-500 text-white px-3 py-1 rounded" onclick="handleCheckin('start')">Start on Time</button>
       <button class="bg-yellow-500 text-white px-3 py-1 rounded" onclick="handleCheckin('late')">Running Late</button>
-      <button class="bg-orange-500 text-white px-3 py-1 rounded" onclick="logToMonitor('User selected: Reschedule')">Reschedule</button>
-      <button class="bg-red-500 text-white px-3 py-1 rounded" onclick="logToMonitor('User selected: Cancel')">Cancel</button>
+      <button class="bg-orange-500 text-white px-3 py-1 rounded" onclick="handleCheckin('reschedule')">Reschedule</button>
+      <button class="bg-red-500 text-white px-3 py-1 rounded" onclick="handleCheckin('cancel')">Cancel</button>
     </div>
   </div>
 
@@ -108,11 +108,12 @@
     updateClock();
 
     const checkStartTimes = (docs) => {
-      const now = Math.floor(Date.now() / 1000);
+      const now = new Date().toLocaleString('en-US', { timeZone: 'Australia/Brisbane' });
+      const nowTimestamp = Math.floor(new Date(now).getTime() / 1000);
       docs.forEach(docSnap => {
         const data = docSnap.data();
         const start = data.startTime?.seconds;
-        if (start && now >= start && now - start < 60 && !data.initialCheckinDone && !promptedDocs.has(docSnap.id)) {
+        if (start && nowTimestamp >= start && nowTimestamp - start < 60 && !data.initialCheckinDone && !promptedDocs.has(docSnap.id)) {
           promptedDocId = docSnap.id;
           promptedDocs.add(promptedDocId);
           logToMonitor(`Start time reached for ${data.contactName}. Show check-in options.`);
