@@ -5,45 +5,37 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>MeetSafe Web Console</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    body { font-family: 'Inter', sans-serif; background: #f3f4f6; }
-    .log-area { background: #000; color: #fff; font-family: monospace; padding: 10px; border-radius: 6px; height: 200px; overflow-y: auto; }
-    .log-area::-webkit-scrollbar { width: 6px; }
-    .log-area::-webkit-scrollbar-thumb { background: #999; border-radius: 5px; }
-  </style>
 </head>
-<body class="p-6 space-y-6">
-  <h1 class="text-2xl font-bold">MeetSafe Web Console</h1>
+<body class="bg-gray-100 p-6 space-y-6">
+  <h1 class="text-3xl font-bold">MeetSafe Web Console</h1>
 
-  <div class="space-y-2">
+  <div>
     <h2 class="text-xl font-semibold">Authentication</h2>
-    <input type="email" id="authEmail" placeholder="Email" class="border p-2 rounded"/>
-    <input type="password" id="authPassword" placeholder="Password" class="border p-2 rounded"/>
+    <input type="email" id="authEmail" placeholder="Email" class="border p-1" />
+    <input type="password" id="authPassword" placeholder="Password" class="border p-1" />
     <button id="signUpBtn" class="bg-blue-500 text-white px-3 py-1 rounded">Sign Up</button>
-    <button id="signInBtn" class="bg-green-500 text-white px-3 py-1 rounded">Sign In</button>
-    <button id="signOutBtn" class="bg-red-500 text-white px-3 py-1 rounded">Sign Out</button>
-    <div>
-      Current User: <span id="currentUserDisplay">None</span><br/>
-      User ID: <span id="currentUidDisplay">N/A</span>
-    </div>
+    <button id="signInBtn" class="bg-green-600 text-white px-3 py-1 rounded">Sign In</button>
+    <button id="signOutBtn" class="bg-red-600 text-white px-3 py-1 rounded">Sign Out</button><br/>
+    <span>Current User: <span id="currentUserDisplay">Not signed in</span></span><br/>
+    <span>User ID: <span id="currentUidDisplay">N/A</span></span>
   </div>
 
-  <div class="bg-white rounded p-4 shadow">
-    <h2 class="text-lg font-bold mb-2">Create Rendezvous</h2>
-    <input class="w-full p-2 mb-2 border rounded" id="contactName" placeholder="Contact Name"/>
-    <input class="w-full p-2 mb-2 border rounded" type="datetime-local" id="startTime"/>
-    <input class="w-full p-2 mb-2 border rounded" type="datetime-local" id="endTime"/>
-    <button class="bg-green-600 text-white px-4 py-2 rounded" id="submitRdv">Submit</button>
+  <div class="bg-white rounded-lg p-4 shadow">
+    <h2 class="text-xl font-semibold mb-2">Create Rendezvous</h2>
+    <input id="contactName" class="border rounded p-2 mb-2 w-full" placeholder="Contact Name" />
+    <input type="datetime-local" id="startTime" class="border rounded p-2 mb-2 w-full" />
+    <input type="datetime-local" id="endTime" class="border rounded p-2 mb-2 w-full" />
+    <button id="submitRdv" class="bg-green-500 text-white px-4 py-2 rounded">Submit</button>
   </div>
 
   <div>
     <h2 class="text-lg font-semibold">Current Time</h2>
-    <div id="clockDisplay" class="text-xl text-gray-700"></div>
+    <div id="clockDisplay" class="text-xl"></div>
   </div>
 
   <div>
-    <h2 class="text-lg font-semibold">Monitor</h2>
-    <div id="monitorLog" class="log-area">Monitoring log...</div>
+    <h2 class="text-lg font-semibold">Real-Time Check Monitor</h2>
+    <div id="monitorLog" class="bg-black text-white p-3 h-40 overflow-y-scroll font-mono text-sm rounded">Monitoring log...</div>
   </div>
 
   <div id="checkinPrompt" class="hidden bg-yellow-100 border border-yellow-300 text-yellow-900 rounded p-4">
@@ -51,142 +43,156 @@
     <div class="space-x-2">
       <button class="bg-blue-500 text-white px-3 py-1 rounded" onclick="handleCheckin('start')">Start on Time</button>
       <button class="bg-yellow-500 text-white px-3 py-1 rounded" onclick="handleCheckin('late')">Running Late</button>
-      <button class="bg-orange-500 text-white px-3 py-1 rounded" onclick="logToMonitor('User selected: Reschedule')">Reschedule</button>
-      <button class="bg-red-500 text-white px-3 py-1 rounded" onclick="logToMonitor('User selected: Cancel')">Cancel</button>
+      <button class="bg-orange-500 text-white px-3 py-1 rounded" onclick="handleCheckin('reschedule')">Reschedule</button>
+      <button class="bg-red-500 text-white px-3 py-1 rounded" onclick="handleCheckin('cancel')">Cancel</button>
     </div>
   </div>
 
-  <div id="endCheckinPrompt" class="hidden bg-green-100 border border-green-300 text-green-900 rounded p-4 mt-4">
-    <p class="font-medium mb-2">End check-in: Are you okay?</p>
+  <div id="endPrompt" class="hidden bg-green-100 border border-green-300 text-green-900 rounded p-4">
+    <p class="font-medium mb-2">End check-in: Did everything go okay?</p>
     <div class="space-x-2">
-      <button class="bg-green-600 text-white px-3 py-1 rounded" onclick="handleEndCheckin('ok')">Yes</button>
-      <button class="bg-red-600 text-white px-3 py-1 rounded" onclick="handleEndCheckin('not_ok')">No</button>
+      <button class="bg-green-600 text-white px-3 py-1 rounded" onclick="handleEndCheckin('ok')">Yes, all good</button>
+      <button class="bg-red-600 text-white px-3 py-1 rounded" onclick="handleEndCheckin('not_ok')">No, problem occurred</button>
     </div>
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getFirestore, collection, query, where, onSnapshot, updateDoc, doc, addDoc, Timestamp, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getFirestore, collection, query, where, getDocs, onSnapshot, addDoc, updateDoc, Timestamp, doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    const config = {
+    const firebaseConfig = {
       apiKey: "AIzaSyAV52Ads-ckhKuGsKvHoYYTrDIqBHMHusQ",
       authDomain: "meetsafe-clean-core.firebaseapp.com",
       projectId: "meetsafe-clean-core"
     };
 
-    const app = initializeApp(config);
+    const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
-
     let currentUser = null;
-    let promptedDocs = new Set();
-    let endPromptedDocs = new Set();
-    let currentPromptDocId = null;
+    const promptedDocs = new Set();
+    const endedDocs = new Set();
+    let currentPromptedDocId = null;
 
-    const logToMonitor = (msg) => {
-      const div = document.createElement("div");
-      div.textContent = `[${new Date().toLocaleTimeString("en-AU", { timeZone: "Australia/Brisbane" })}] ${msg}`;
-      document.getElementById("monitorLog").appendChild(div);
-      document.getElementById("monitorLog").scrollTop = document.getElementById("monitorLog").scrollHeight;
+    const logToMonitor = msg => {
+      const log = document.getElementById("monitorLog");
+      log.innerHTML += `<div>[${new Date().toLocaleTimeString()}] ${msg}</div>`;
+      log.scrollTop = log.scrollHeight;
     };
 
     const updateClock = () => {
-      document.getElementById("clockDisplay").textContent = new Date().toLocaleTimeString("en-AU", { timeZone: "Australia/Brisbane" });
+      document.getElementById("clockDisplay").textContent = new Date().toLocaleTimeString();
     };
-    setInterval(updateClock, 1000); updateClock();
+    setInterval(updateClock, 1000);
+    updateClock();
 
-    const checkTimes = async () => {
-      if (!currentUser) return;
-      const now = Math.floor(Date.now() / 1000);
-      const ref = collection(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous`);
-      const q = query(ref, where("status", "==", "active"));
-      const snapshot = await getDocs(q);
-      snapshot.docs.forEach(docSnap => {
-        const data = docSnap.data();
-        const id = docSnap.id;
-
-        if (data.startTime?.seconds && now >= data.startTime.seconds && now - data.startTime.seconds < 60 && !data.initialCheckinDone && !promptedDocs.has(id)) {
-          promptedDocs.add(id);
-          currentPromptDocId = id;
-          logToMonitor(`Start time reached for ${data.contactName}. Prompting...`);
-          document.getElementById("checkinPrompt").classList.remove("hidden");
-        }
-
-        if (data.endTime?.seconds && now >= data.endTime.seconds && now - data.endTime.seconds < 60 && !data.endCheckinDone && !endPromptedDocs.has(id)) {
-          endPromptedDocs.add(id);
-          currentPromptDocId = id;
-          logToMonitor(`End time reached for ${data.contactName}. Prompting end check-in...`);
-          document.getElementById("endCheckinPrompt").classList.remove("hidden");
-        }
-      });
-    };
-    setInterval(checkTimes, 1000);
-
-    window.handleCheckin = async (response) => {
-      if (!currentPromptDocId || !currentUser) return;
-      const ref = doc(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous/${currentPromptDocId}`);
-      await updateDoc(ref, { initialCheckinDone: true, initialCheckinResponse: response });
-      logToMonitor(`Logged check-in response: ${response}`);
-      document.getElementById("checkinPrompt").classList.add("hidden");
-    };
-
-    window.handleEndCheckin = async (response) => {
-      if (!currentPromptDocId || !currentUser) return;
-      const ref = doc(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous/${currentPromptDocId}`);
-      await updateDoc(ref, { endCheckinDone: true, endCheckinResponse: response });
-      logToMonitor(`Logged end check-in: ${response}`);
-      document.getElementById("endCheckinPrompt").classList.add("hidden");
-    };
-
-    document.getElementById("submitRdv").addEventListener("click", async () => {
-      if (!currentUser) return alert("Not signed in");
-      const name = document.getElementById("contactName").value;
-      const start = new Date(document.getElementById("startTime").value);
-      const end = new Date(document.getElementById("endTime").value);
-      const ref = await addDoc(collection(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous`), {
-        contactName: name,
-        startTime: Timestamp.fromDate(start),
-        endTime: Timestamp.fromDate(end),
-        status: "active",
-        createdAt: Timestamp.now(),
-        initialCheckinDone: false,
-        endCheckinDone: false,
-        userId: currentUser.uid
-      });
-      logToMonitor(`Created rendezvous: ${name}`);
-    });
-
-    document.getElementById("signUpBtn").onclick = () => {
+    document.getElementById("signUpBtn").onclick = async () => {
       const email = document.getElementById("authEmail").value;
-      const pw = document.getElementById("authPassword").value;
-      createUserWithEmailAndPassword(auth, email, pw).then(userCred => {
-        logToMonitor("Signed up: " + email);
-      }).catch(e => alert(e.message));
+      const password = document.getElementById("authPassword").value;
+      await createUserWithEmailAndPassword(auth, email, password);
     };
 
-    document.getElementById("signInBtn").onclick = () => {
+    document.getElementById("signInBtn").onclick = async () => {
       const email = document.getElementById("authEmail").value;
-      const pw = document.getElementById("authPassword").value;
-      signInWithEmailAndPassword(auth, email, pw).then(userCred => {
-        logToMonitor("Signed in: " + email);
-      }).catch(e => alert(e.message));
+      const password = document.getElementById("authPassword").value;
+      await signInWithEmailAndPassword(auth, email, password);
     };
 
-    document.getElementById("signOutBtn").onclick = () => {
-      signOut(auth);
+    document.getElementById("signOutBtn").onclick = async () => {
+      await signOut(auth);
     };
 
-    onAuthStateChanged(auth, (user) => {
+    onAuthStateChanged(auth, user => {
       currentUser = user;
       if (user) {
         document.getElementById("currentUserDisplay").textContent = user.email;
         document.getElementById("currentUidDisplay").textContent = user.uid;
+        listenToRendezvous();
       } else {
-        document.getElementById("currentUserDisplay").textContent = "None";
+        document.getElementById("currentUserDisplay").textContent = "Not signed in";
         document.getElementById("currentUidDisplay").textContent = "N/A";
       }
     });
+
+    const listenToRendezvous = () => {
+      const q = query(collection(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous`), where("status", "==", "active"));
+      onSnapshot(q, snapshot => {
+        snapshot.docChanges().forEach(change => {
+          const data = change.doc.data();
+          const name = data.contactName;
+          if (change.type === "added") logToMonitor(`ADDED ${name}`);
+          if (change.type === "modified") logToMonitor(`MODIFIED ${name}`);
+        });
+      });
+    };
+
+    document.getElementById("submitRdv").onclick = async () => {
+      const name = document.getElementById("contactName").value;
+      const start = new Date(document.getElementById("startTime").value);
+      const end = new Date(document.getElementById("endTime").value);
+      await addDoc(collection(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous`), {
+        contactName: name,
+        startTime: Timestamp.fromDate(start),
+        endTime: Timestamp.fromDate(end),
+        createdAt: Timestamp.now(),
+        initialCheckinDone: false,
+        endCheckinDone: false,
+        mode: "normal",
+        status: "active"
+      });
+      logToMonitor(`Created rendezvous: ${name}`);
+    };
+
+    window.handleCheckin = async (status) => {
+      if (!currentPromptedDocId || !currentUser) return;
+      const ref = doc(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous/${currentPromptedDocId}`);
+      await updateDoc(ref, {
+        initialCheckinDone: true,
+        initialCheckinResponse: status
+      });
+      document.getElementById("checkinPrompt").classList.add("hidden");
+      logToMonitor(`Logged check-in response: ${status}`);
+    };
+
+    window.handleEndCheckin = async (status) => {
+      if (!currentPromptedDocId || !currentUser) return;
+      const ref = doc(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous/${currentPromptedDocId}`);
+      await updateDoc(ref, {
+        endCheckinDone: true,
+        endCheckinResponse: status
+      });
+      document.getElementById("endPrompt").classList.add("hidden");
+      logToMonitor(`Logged end check-in: ${status}`);
+    };
+
+    setInterval(async () => {
+      if (!currentUser) return;
+      const q = query(collection(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous`), where("status", "==", "active"));
+      const snapshot = await getDocs(q);
+      const now = Math.floor(Date.now() / 1000);
+
+      snapshot.docs.forEach(docSnap => {
+        const data = docSnap.data();
+        const id = docSnap.id;
+        const start = data.startTime?.seconds;
+        const end = data.endTime?.seconds;
+
+        if (start && now >= start && now - start < 60 && !data.initialCheckinDone && !promptedDocs.has(id)) {
+          currentPromptedDocId = id;
+          promptedDocs.add(id);
+          logToMonitor(`Start time reached for ${data.contactName}. Show check-in options.`);
+          document.getElementById("checkinPrompt").classList.remove("hidden");
+        }
+
+        if (end && now >= end && now - end < 60 && data.initialCheckinDone && !data.endCheckinDone && !endedDocs.has(id)) {
+          currentPromptedDocId = id;
+          endedDocs.add(id);
+          logToMonitor(`End time reached for ${data.contactName}. Show end check-in.`);
+          document.getElementById("endPrompt").classList.remove("hidden");
+        }
+      });
+    }, 1000);
   </script>
 </body>
 </html>
