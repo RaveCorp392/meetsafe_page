@@ -84,40 +84,7 @@
   </div>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getFirestore, collection, query, where, onSnapshot, updateDoc, doc, addDoc, Timestamp, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyAV52Ads-ckhKuGsKvHoYYTrDIqBHMHusQ",
-      authDomain: "meetsafe-clean-core.firebaseapp.com",
-      projectId: "meetsafe-clean-core"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    let currentUser = null;
-    let promptedDocId = null;
-    const promptedDocs = new Set();
-
-    const brisbaneTimeString = (date = new Date()) =>
-      date.toLocaleTimeString('en-AU', { timeZone: 'Australia/Brisbane', hour12: false });
-
-    const logToMonitor = (msg) => {
-      const area = document.getElementById('monitorLog');
-      const div = document.createElement('div');
-      div.textContent = `[${brisbaneTimeString()}] ${msg}`;
-      area.appendChild(div);
-      area.scrollTop = area.scrollHeight;
-    };
-
-    const updateClock = () => {
-      document.getElementById("clockDisplay").textContent = brisbaneTimeString();
-    };
-    setInterval(updateClock, 1000);
-    updateClock();
-
+    // inside checkStartTimes()
     const checkStartTimes = (docs) => {
       const now = new Date().toLocaleString('en-US', { timeZone: 'Australia/Brisbane' });
       const nowTimestamp = Math.floor(new Date(now).getTime() / 1000);
@@ -125,12 +92,14 @@
         const data = docSnap.data();
         const start = data.startTime?.seconds;
         const end = data.endTime?.seconds;
+
         if (start && nowTimestamp >= start && nowTimestamp - start < 60 && !data.initialCheckinDone && !promptedDocs.has(docSnap.id)) {
           promptedDocId = docSnap.id;
           promptedDocs.add(promptedDocId);
           logToMonitor(`Start time reached for ${data.contactName}. Show check-in options.`);
           document.getElementById('checkinPrompt').classList.remove('hidden');
         }
+
         if (end && nowTimestamp >= end && data.initialCheckinDone && !data.endCheckinDone && !promptedDocs.has(`${docSnap.id}_end`)) {
           promptedDocId = docSnap.id;
           promptedDocs.add(`${docSnap.id}_end`);
@@ -139,87 +108,6 @@
         }
       });
     };
-
-    window.handleCheckin = async (type) => {
-      if (!currentUser || !promptedDocId) return;
-      const ref = doc(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous/${promptedDocId}`);
-      await updateDoc(ref, {
-        initialCheckinDone: true,
-        initialCheckinResponse: type
-      });
-      logToMonitor(`Logged check-in response: ${type}`);
-      document.getElementById('checkinPrompt').classList.add('hidden');
-    };
-
-    window.handleEndCheckin = async (type) => {
-      if (!currentUser || !promptedDocId) return;
-      const ref = doc(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous/${promptedDocId}`);
-      await updateDoc(ref, {
-        endCheckinDone: true,
-        endCheckinResponse: type
-      });
-      logToMonitor(`Logged end check-in response: ${type}`);
-      document.getElementById('endPrompt').classList.add('hidden');
-    };
-
-    setInterval(async () => {
-      if (!currentUser) return;
-      const q = query(
-        collection(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous`),
-        where("status", "==", "active")
-      );
-      const snapshot = await getDocs(q);
-      checkStartTimes(snapshot.docs);
-    }, 1000);
-
-    document.getElementById("submitRdv").addEventListener("click", async () => {
-      const contactName = document.getElementById("contactName").value;
-      const startTime = new Date(document.getElementById("startTime").value);
-      const endTime = new Date(document.getElementById("endTime").value);
-
-      if (!currentUser) return alert("Not signed in");
-
-      await addDoc(collection(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous`), {
-        contactName,
-        startTime: Timestamp.fromDate(startTime),
-        endTime: Timestamp.fromDate(endTime),
-        createdAt: Timestamp.now(),
-        userId: currentUser.uid,
-        initialCheckinDone: false,
-        endCheckinDone: false,
-        mode: "normal",
-        checkInType: "none",
-        status: "active"
-      });
-      logToMonitor(`Submitted rendezvous: ${contactName}`);
-    });
-
-    onAuthStateChanged(auth, (user) => {
-      if (user) {
-        currentUser = user;
-        document.getElementById('currentUserDisplay').textContent = user.email;
-        document.getElementById('currentUidDisplay').textContent = user.uid;
-        const q = query(collection(db, `artifacts/meetsafe-clean-core/users/${user.uid}/rendezvous`), where("status", "==", "active"));
-        onSnapshot(q, (snapshot) => {
-          snapshot.docChanges().forEach(change => {
-            const data = change.doc.data();
-            if (change.type === "added") {
-              logToMonitor(`Added rendezvous: ${data.contactName}`);
-            } else if (change.type === "modified") {
-              logToMonitor(`Updated rendezvous: ${data.contactName}`);
-            } else if (change.type === "removed") {
-              logToMonitor(`Deleted rendezvous: ${data.contactName}`);
-            }
-          });
-          checkStartTimes(snapshot.docs);
-        });
-      } else {
-        currentUser = null;
-        document.getElementById('currentUserDisplay').textContent = 'Not authenticated';
-        document.getElementById('currentUidDisplay').textContent = 'N/A';
-        logToMonitor('Auth state changed: signed out');
-      }
-    });
   </script>
 </body>
 </html>
