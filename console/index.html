@@ -3,63 +3,41 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Meetsafe Web Console (Manager)</title>
+  <title>Meetsafe Web Console</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    body {
-      font-family: 'Inter', sans-serif;
-      background-color: #f3f4f6;
-    }
-    .log-area::-webkit-scrollbar {
-      width: 8px;
-    }
-    .log-area::-webkit-scrollbar-track {
-      background: #4a5568;
-      border-radius: 10px;
-    }
-    .log-area::-webkit-scrollbar-thumb {
-      background: #a0aec0;
-      border-radius: 10px;
-    }
-    .log-area::-webkit-scrollbar-thumb:hover {
-      background: #cbd5e0;
-    }
-  </style>
 </head>
-<body class="p-6 space-y-10">
+<body class="p-6 bg-gray-100 space-y-10 font-sans">
   <h1 class="text-3xl font-bold">MeetSafe Web Console</h1>
 
-  <div class="panel">
+  <div class="space-y-2">
     <h2 class="text-xl font-semibold">Authentication</h2>
-    <div class="auth-section">
-      <input type="email" id="authEmail" placeholder="Email" />
-      <input type="password" id="authPassword" placeholder="Password" />
-      <button id="signUpBtn">Sign Up</button>
-      <button id="signInBtn">Sign In</button>
-      <button id="signOutBtn">Sign Out</button>
+    <input type="email" id="authEmail" placeholder="Email" class="p-2 border rounded w-full max-w-md" />
+    <input type="password" id="authPassword" placeholder="Password" class="p-2 border rounded w-full max-w-md" />
+    <div class="space-x-2">
+      <button id="signUpBtn" class="bg-blue-600 text-white px-3 py-1 rounded">Sign Up</button>
+      <button id="signInBtn" class="bg-green-600 text-white px-3 py-1 rounded">Sign In</button>
+      <button id="signOutBtn" class="bg-red-600 text-white px-3 py-1 rounded">Sign Out</button>
     </div>
-    <div class="current-user-info">
-      Current User: <span id="currentUserDisplay">Not authenticated</span><br />
-      User ID: <span id="currentUidDisplay">N/A</span>
-    </div>
+    <p>Current User: <span id="currentUserDisplay">Not authenticated</span><br />
+       User ID: <span id="currentUidDisplay">N/A</span></p>
   </div>
 
-  <div class="bg-white rounded-lg p-4 shadow">
-    <h2 class="text-xl font-semibold mb-2">Create Rendezvous</h2>
-    <input class="mb-2 w-full p-2 border rounded" id="contactName" placeholder="Contact Name" />
-    <input class="mb-2 w-full p-2 border rounded" type="datetime-local" id="startTime" />
-    <input class="mb-2 w-full p-2 border rounded" type="datetime-local" id="endTime" />
+  <div class="space-y-2 bg-white p-4 rounded shadow">
+    <h2 class="text-xl font-semibold">Create Rendezvous</h2>
+    <input class="block mb-2 w-full p-2 border rounded" id="contactName" placeholder="Contact Name" />
+    <input class="block mb-2 w-full p-2 border rounded" type="datetime-local" id="startTime" />
+    <input class="block mb-2 w-full p-2 border rounded" type="datetime-local" id="endTime" />
     <button class="bg-green-500 text-white px-4 py-2 rounded" id="submitRdv">Submit</button>
   </div>
 
-  <div class="bg-white rounded-lg p-4 shadow">
-    <h2 class="text-xl font-semibold mb-2">Current Time</h2>
-    <div class="text-gray-700 text-lg" id="clockDisplay"></div>
+  <div class="space-y-2 bg-white p-4 rounded shadow">
+    <h2 class="text-xl font-semibold">Current Time</h2>
+    <p class="text-lg text-gray-800" id="clockDisplay"></p>
   </div>
 
-  <div id="monitorArea" class="bg-white rounded-lg p-4 shadow">
-    <h2 class="text-xl font-semibold mb-2">Real-Time Check Monitor</h2>
-    <div id="monitorLog" class="log-area bg-gray-900 text-white p-3 rounded h-40 overflow-y-scroll text-sm">Monitoring log output</div>
+  <div class="space-y-2 bg-white p-4 rounded shadow">
+    <h2 class="text-xl font-semibold">Monitor</h2>
+    <div id="monitorLog" class="bg-black text-white p-2 rounded h-40 overflow-y-scroll text-sm font-mono">Monitoring log...</div>
   </div>
 
   <div id="checkinPrompt" class="hidden bg-yellow-100 border border-yellow-300 text-yellow-900 rounded p-4">
@@ -74,38 +52,41 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getFirestore, collection, query, where, onSnapshot, updateDoc, doc, addDoc, Timestamp, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getFirestore, collection, addDoc, Timestamp, doc, updateDoc, query, where, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    const firebaseConfig = {
+    const config = {
       apiKey: "AIzaSyAV52Ads-ckhKuGsKvHoYYTrDIqBHMHusQ",
       authDomain: "meetsafe-clean-core.firebaseapp.com",
       projectId: "meetsafe-clean-core"
     };
 
-    const app = initializeApp(firebaseConfig);
+    const app = initializeApp(config);
     const auth = getAuth(app);
     const db = getFirestore(app);
     let currentUser = null;
     let promptedDocId = null;
     const promptedDocs = new Set();
 
-    const brisbaneTimeString = (date = new Date()) =>
-      date.toLocaleTimeString('en-AU', { timeZone: 'Australia/Brisbane', hour12: false });
+    const clock = document.getElementById("clockDisplay");
+    const brisbaneTimeString = (d = new Date()) => d.toLocaleTimeString('en-AU', { timeZone: 'Australia/Brisbane', hour12: false });
+    setInterval(() => clock.textContent = brisbaneTimeString(), 1000);
 
     const logToMonitor = (msg) => {
-      const area = document.getElementById('monitorLog');
-      const div = document.createElement('div');
+      const area = document.getElementById("monitorLog");
+      const div = document.createElement("div");
       div.textContent = `[${brisbaneTimeString()}] ${msg}`;
       area.appendChild(div);
       area.scrollTop = area.scrollHeight;
     };
 
-    const updateClock = () => {
-      document.getElementById("clockDisplay").textContent = brisbaneTimeString();
+    window.handleCheckin = async (type) => {
+      if (!currentUser || !promptedDocId) return;
+      const ref = doc(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous/${promptedDocId}`);
+      await updateDoc(ref, { initialCheckinDone: true, initialCheckinResponse: type });
+      logToMonitor(`Logged check-in response: ${type}`);
+      document.getElementById("checkinPrompt").classList.add("hidden");
     };
-    setInterval(updateClock, 1000);
-    updateClock();
 
     const checkStartTimes = (docs) => {
       const now = Math.floor(Date.now() / 1000);
@@ -115,44 +96,28 @@
         if (start && now >= start && now - start < 60 && !data.initialCheckinDone && !promptedDocs.has(docSnap.id)) {
           promptedDocId = docSnap.id;
           promptedDocs.add(promptedDocId);
-          logToMonitor(`Start time reached for ${data.contactName}. Show check-in options.`);
-          document.getElementById('checkinPrompt').classList.remove('hidden');
+          logToMonitor(`Start time reached for ${data.contactName}. Prompting...`);
+          document.getElementById("checkinPrompt").classList.remove("hidden");
         }
       });
     };
 
-    window.handleCheckin = async (type) => {
-      if (!currentUser || !promptedDocId) return;
-      const ref = doc(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous/${promptedDocId}`);
-      await updateDoc(ref, {
-        initialCheckinDone: true,
-        initialCheckinResponse: type
-      });
-      logToMonitor(`Logged check-in response: ${type}`);
-      document.getElementById('checkinPrompt').classList.add('hidden');
-    };
-
     setInterval(async () => {
       if (!currentUser) return;
-      const q = query(
-        collection(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous`),
-        where("status", "==", "active")
-      );
-      const snapshot = await getDocs(q);
-      checkStartTimes(snapshot.docs);
+      const q = query(collection(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous`), where("status", "==", "active"));
+      const snap = await getDocs(q);
+      checkStartTimes(snap.docs);
     }, 1000);
 
     document.getElementById("submitRdv").addEventListener("click", async () => {
+      if (!currentUser) return alert("Not signed in.");
       const contactName = document.getElementById("contactName").value;
-      const startTime = new Date(document.getElementById("startTime").value);
-      const endTime = new Date(document.getElementById("endTime").value);
-
-      if (!currentUser) return alert("Not signed in");
-
-      const docRef = await addDoc(collection(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous`), {
+      const start = new Date(document.getElementById("startTime").value);
+      const end = new Date(document.getElementById("endTime").value);
+      await addDoc(collection(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous`), {
         contactName,
-        startTime: Timestamp.fromDate(startTime),
-        endTime: Timestamp.fromDate(endTime),
+        startTime: Timestamp.fromDate(start),
+        endTime: Timestamp.fromDate(end),
         createdAt: Timestamp.now(),
         userId: currentUser.uid,
         initialCheckinDone: false,
@@ -160,33 +125,36 @@
         checkInType: "none",
         status: "active"
       });
-      logToMonitor(`Submitted rendezvous: ${contactName}`);
+      logToMonitor(`Created rendezvous: ${contactName}`);
     });
 
-    onAuthStateChanged(auth, (user) => {
+    document.getElementById("signUpBtn").onclick = async () => {
+      const email = document.getElementById("authEmail").value;
+      const password = document.getElementById("authPassword").value;
+      await createUserWithEmailAndPassword(auth, email, password).catch(e => logToMonitor("Signup error: " + e.message));
+    };
+
+    document.getElementById("signInBtn").onclick = async () => {
+      const email = document.getElementById("authEmail").value;
+      const password = document.getElementById("authPassword").value;
+      await signInWithEmailAndPassword(auth, email, password).catch(e => logToMonitor("Signin error: " + e.message));
+    };
+
+    document.getElementById("signOutBtn").onclick = () => signOut(auth);
+
+    onAuthStateChanged(auth, user => {
+      currentUser = user;
+      document.getElementById("currentUserDisplay").textContent = user ? user.email : "Not authenticated";
+      document.getElementById("currentUidDisplay").textContent = user ? user.uid : "N/A";
       if (user) {
-        currentUser = user;
-        document.getElementById('currentUserDisplay').textContent = user.email;
-        document.getElementById('currentUidDisplay').textContent = user.uid;
         const q = query(collection(db, `artifacts/meetsafe-clean-core/users/${user.uid}/rendezvous`), where("status", "==", "active"));
-        onSnapshot(q, (snapshot) => {
-          snapshot.docChanges().forEach(change => {
+        onSnapshot(q, (snap) => {
+          snap.docChanges().forEach(change => {
             const data = change.doc.data();
-            if (change.type === "added") {
-              logToMonitor(`Added rendezvous: ${data.contactName}`);
-            } else if (change.type === "modified") {
-              logToMonitor(`Updated rendezvous: ${data.contactName}`);
-            } else if (change.type === "removed") {
-              logToMonitor(`Deleted rendezvous: ${data.contactName}`);
-            }
+            logToMonitor(`${change.type.toUpperCase()} ${data.contactName}`);
           });
-          checkStartTimes(snapshot.docs);
+          checkStartTimes(snap.docs);
         });
-      } else {
-        currentUser = null;
-        document.getElementById('currentUserDisplay').textContent = 'Not authenticated';
-        document.getElementById('currentUidDisplay').textContent = 'N/A';
-        logToMonitor('Auth state changed: signed out');
       }
     });
   </script>
