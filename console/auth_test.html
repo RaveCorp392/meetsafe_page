@@ -4,53 +4,59 @@
 <head>
   <title>MeetSafe Auth Debug</title>
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
-    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
 
     const firebaseConfig = {
-      apiKey: "AIzaSyBxxxxxxx", // replace with real key
+      apiKey: "AIzaSyAV52Ads-ckhKuGsKvHoYYTrDIqBHMHusQ",
       authDomain: "meetsafe-clean-core.firebaseapp.com",
       projectId: "meetsafe-clean-core",
+      storageBucket: "meetsafe-clean-core.firebasestorage.app",
+      messagingSenderId: "970833854934",
+      appId: "1:970833854934:web:5ae847503baa2c6c552477",
+      measurementId: "G-E6LBFE2SEB"
     };
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
 
-    window.addEventListener('DOMContentLoaded', () => {
-      const emailInput = document.getElementById("email");
-      const passwordInput = document.getElementById("password");
-      const signInBtn = document.getElementById("signin");
-      const signUpBtn = document.getElementById("signup");
-      const status = document.getElementById("status");
+    window.signIn = () => {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      signInWithEmailAndPassword(auth, email, password)
+        .then((userCredential) => {
+          document.getElementById('status').innerText = "Signed in as: " + email;
+        })
+        .catch((error) => {
+          alert("Sign-in error: " + error);
+        });
+    };
 
-      signInBtn.onclick = () => {
-        signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value)
-          .then(() => status.innerText = `Signed in as ${emailInput.value}`)
-          .catch(error => alert("Sign-in error: " + error));
-      };
+    window.signUp = () => {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      createUserWithEmailAndPassword(auth, email, password)
+        .then((userCredential) => {
+          document.getElementById('status').innerText = "Signed up as: " + email;
+        })
+        .catch((error) => {
+          alert("Sign-up error: " + error);
+        });
+    };
 
-      signUpBtn.onclick = () => {
-        createUserWithEmailAndPassword(auth, emailInput.value, passwordInput.value)
-          .then(() => status.innerText = `Signed up as ${emailInput.value}`)
-          .catch(error => alert("Sign-up error: " + error));
-      };
-
-      onAuthStateChanged(auth, user => {
-        if (user) {
-          status.innerText = `Signed in as ${user.email}`;
-        } else {
-          status.innerText = "Not signed in.";
-        }
-      });
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        document.getElementById('status').innerText = "Signed in as: " + user.email;
+      }
     });
   </script>
 </head>
 <body>
-  <h2>MeetSafe Auth Debug</h2>
+  <h1>MeetSafe Auth Debug</h1>
   <input id="email" type="text" placeholder="Email" value="hello@meetsafe.io" />
-  <input id="password" type="password" placeholder="Password" value="test1234" />
-  <button id="signin">Sign In</button>
-  <button id="signup">Sign Up</button>
+  <input id="password" type="password" placeholder="Password" value="password" />
+  <button onclick="signIn()">Sign In</button>
+  <button onclick="signUp()">Sign Up</button>
   <p id="status">Not signed in.</p>
 </body>
 </html>
