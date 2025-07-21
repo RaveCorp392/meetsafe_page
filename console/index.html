@@ -82,33 +82,5 @@
       <button class="bg-red-800 text-white px-3 py-1 rounded" onclick="handleEndCheckin('pin_failed')">PIN Failed x3</button>
     </div>
   </div>
-
-  <script type="module">
-    const checkStartTimes = (docs) => {
-      const now = new Date().toLocaleString('en-US', { timeZone: 'Australia/Brisbane' });
-      const nowTimestamp = Math.floor(new Date(now).getTime() / 1000);
-
-      docs.forEach(docSnap => {
-        const data = docSnap.data();
-        const start = data.startTime?.seconds;
-        const end = data.endTime?.seconds;
-        const docId = docSnap.id;
-
-        if (start && nowTimestamp >= start && nowTimestamp - start < 120 && !data.initialCheckinDone && !promptedDocs.has(docId)) {
-          promptedDocId = docId;
-          promptedDocs.add(docId);
-          logToMonitor(`Start time reached for ${data.contactName}. Show check-in options.`);
-          document.getElementById('checkinPrompt').classList.remove('hidden');
-        }
-
-        if (end && nowTimestamp >= end && nowTimestamp - end < 120 && data.initialCheckinDone && !data.endCheckinDone && !promptedDocs.has(`${docId}_end`)) {
-          promptedDocId = docId;
-          promptedDocs.add(`${docId}_end`);
-          logToMonitor(`End time reached for ${data.contactName}. Show end check-in.`);
-          document.getElementById('endPrompt').classList.remove('hidden');
-        }
-      });
-    };
-  </script>
 </body>
 </html>
