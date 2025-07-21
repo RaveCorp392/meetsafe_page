@@ -1,56 +1,56 @@
+
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>MeetSafe Auth Debug</title>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js"></script>
-  </head>
-  <body>
-    <h2>MeetSafe Auth Debug</h2>
-    <input id="email" type="email" placeholder="Email">
-    <input id="password" type="password" placeholder="Password">
-    <button onclick="signIn()">Sign In</button>
-    <button onclick="signUp()">Sign Up</button>
-    <p id="status">Not signed in.</p>
+<head>
+  <title>MeetSafe Auth Debug</title>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
 
-    <script>
-      const firebaseConfig = {
-        apiKey: "AIzaSyExampleWorkingKey123456789",
-        authDomain: "meetsafe-clean-core.firebaseapp.com",
-        projectId: "meetsafe-clean-core",
-        storageBucket: "meetsafe-clean-core.appspot.com",
-        messagingSenderId: "692852651509",
-        appId: "1:692852651509:web:your_real_app_id"
+    const firebaseConfig = {
+      apiKey: "AIzaSyBxxxxxxx", // replace with real key
+      authDomain: "meetsafe-clean-core.firebaseapp.com",
+      projectId: "meetsafe-clean-core",
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const emailInput = document.getElementById("email");
+      const passwordInput = document.getElementById("password");
+      const signInBtn = document.getElementById("signin");
+      const signUpBtn = document.getElementById("signup");
+      const status = document.getElementById("status");
+
+      signInBtn.onclick = () => {
+        signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value)
+          .then(() => status.innerText = `Signed in as ${emailInput.value}`)
+          .catch(error => alert("Sign-in error: " + error));
       };
 
-      const app = firebase.initializeApp(firebaseConfig);
-      const auth = firebase.auth();
+      signUpBtn.onclick = () => {
+        createUserWithEmailAndPassword(auth, emailInput.value, passwordInput.value)
+          .then(() => status.innerText = `Signed up as ${emailInput.value}`)
+          .catch(error => alert("Sign-up error: " + error));
+      };
 
-      function signIn() {
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
-        auth.signInWithEmailAndPassword(email, password)
-          .then(user => {
-            alert('Signed in as ' + user.user.email);
-            document.getElementById("status").innerText = "Signed in.";
-          })
-          .catch(error => {
-            alert('Sign-in error: ' + error);
-          });
-      }
-
-      function signUp() {
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
-        auth.createUserWithEmailAndPassword(email, password)
-          .then(user => {
-            alert('Signed up as ' + user.user.email);
-            document.getElementById("status").innerText = "Signed in.";
-          })
-          .catch(error => {
-            alert('Sign-up error: ' + error);
-          });
-      }
-    </script>
-  </body>
+      onAuthStateChanged(auth, user => {
+        if (user) {
+          status.innerText = `Signed in as ${user.email}`;
+        } else {
+          status.innerText = "Not signed in.";
+        }
+      });
+    });
+  </script>
+</head>
+<body>
+  <h2>MeetSafe Auth Debug</h2>
+  <input id="email" type="text" placeholder="Email" value="hello@meetsafe.io" />
+  <input id="password" type="password" placeholder="Password" value="test1234" />
+  <button id="signin">Sign In</button>
+  <button id="signup">Sign Up</button>
+  <p id="status">Not signed in.</p>
+</body>
 </html>
