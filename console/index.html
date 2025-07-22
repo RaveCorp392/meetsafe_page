@@ -2,58 +2,73 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>MeetSafe Web Console</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f3f4f6;
+    }
+    .log-area::-webkit-scrollbar {
+      width: 8px;
+    }
+    .log-area::-webkit-scrollbar-thumb {
+      background: #a0aec0;
+      border-radius: 10px;
+    }
+  </style>
 </head>
-<body class="bg-gray-100 text-black p-6 space-y-6">
-  <h1 class="text-2xl font-bold">MeetSafe Web Console</h1>
+<body class="p-6 space-y-8">
+  <h1 class="text-3xl font-bold">MeetSafe Web Console</h1>
 
-  <!-- Auth Panel -->
-  <div class="space-x-2">
-    <input id="email" placeholder="Email" class="border p-1" />
-    <input id="password" type="password" placeholder="Password" class="border p-1" />
-    <button id="signUpBtn" class="bg-blue-500 text-white px-2">Sign Up</button>
-    <button id="signInBtn" class="bg-green-500 text-white px-2">Sign In</button>
-    <button id="signOutBtn" class="bg-red-500 text-white px-2">Sign Out</button>
-    <p>Current User: <span id="userEmail">None</span></p>
-    <p>User ID: <span id="userId">None</span></p>
+  <div>
+    <h2 class="text-xl font-semibold">Authentication</h2>
+    <input id="authEmail" placeholder="Email" />
+    <input id="authPassword" type="password" placeholder="Password" />
+    <button id="signUpBtn" class="bg-blue-500 text-white px-2 py-1">Sign Up</button>
+    <button id="signInBtn" class="bg-green-500 text-white px-2 py-1">Sign In</button>
+    <button id="signOutBtn" class="bg-red-500 text-white px-2 py-1">Sign Out</button>
+    <p>Current User: <span id="currentUserDisplay">Not authenticated</span><br>User ID: <span id="currentUidDisplay">N/A</span></p>
   </div>
 
-  <!-- Rendezvous Form -->
-  <div class="bg-white p-4 rounded shadow w-full max-w-lg">
-    <h2 class="font-semibold mb-2">Create Rendezvous</h2>
-    <input id="contactName" placeholder="Name" class="w-full border mb-2 p-1" />
-    <select id="checkinType" class="w-full border mb-2 p-1">
+  <div class="bg-white p-4 rounded shadow">
+    <h2 class="text-xl font-semibold">Create Rendezvous</h2>
+    <input id="contactName" class="block w-full my-2 p-2 border rounded" placeholder="Contact Name"/>
+    <select id="checkInType" class="block w-full my-2 p-2 border rounded">
       <option value="none">No Check-In</option>
       <option value="10min">10-Minute Check-In</option>
-      <option value="midpoint">Midpoint Check-In</option>
     </select>
-    <input id="startTime" type="datetime-local" class="w-full border mb-2 p-1" />
-    <input id="endTime" type="datetime-local" class="w-full border mb-2 p-1" />
-    <button id="submitBtn" class="bg-green-600 text-white w-full py-1 rounded">Submit</button>
+    <input id="startTime" type="datetime-local" class="block w-full my-2 p-2 border rounded" />
+    <input id="endTime" type="datetime-local" class="block w-full my-2 p-2 border rounded" />
+    <button id="submitRdv" class="bg-green-600 text-white px-4 py-2 mt-2 rounded">Submit</button>
   </div>
 
-  <!-- Check-In Prompt -->
-  <div id="promptBox" class="hidden p-3 bg-yellow-200 rounded">
-    <p id="promptText" class="font-medium">Prompt text here</p>
-    <div class="space-x-2 mt-2">
-      <button onclick="handleCheckin('start')" class="bg-blue-600 text-white px-2">Start On Time</button>
-      <button onclick="handleCheckin('late')" class="bg-yellow-600 text-white px-2">Running Late</button>
-      <button onclick="handleCheckin('midpoint_ok')" class="bg-green-600 text-white px-2">Mid OK</button>
-      <button onclick="handleCheckin('midpoint_not_ok')" class="bg-red-600 text-white px-2">Mid Not OK</button>
-      <button onclick="handleCheckin('end_ok')" class="bg-green-800 text-white px-2">End OK</button>
-      <button onclick="handleCheckin('end_not_ok')" class="bg-red-800 text-white px-2">End Not OK</button>
-    </div>
+  <div><h2 class="text-lg font-semibold">Current Time</h2><div id="clockDisplay"></div></div>
+
+  <div>
+    <h2 class="text-lg font-semibold">Monitor</h2>
+    <div id="monitorLog" class="log-area bg-black text-white p-2 h-48 overflow-y-scroll text-sm rounded">Monitoring log...</div>
   </div>
 
-  <p><strong>Current Time:</strong> <span id="clock"></span></p>
-  <h3 class="font-semibold">Monitor:</h3>
-  <div id="logBox" class="bg-black text-white p-2 h-48 overflow-y-scroll text-sm font-mono">Monitoring log...</div>
+  <div id="checkinPrompt" class="hidden bg-yellow-100 p-4 rounded border border-yellow-300">
+    <p>Start check-in: What would you like to do?</p>
+    <button class="bg-blue-500 text-white px-3 py-1 m-1 rounded" onclick="handleCheckin('start')">Start on Time</button>
+    <button class="bg-yellow-500 text-white px-3 py-1 m-1 rounded" onclick="handleCheckin('late')">Running Late</button>
+    <button class="bg-orange-500 text-white px-3 py-1 m-1 rounded" onclick="handleCheckin('reschedule')">Reschedule</button>
+    <button class="bg-red-500 text-white px-3 py-1 m-1 rounded" onclick="handleCheckin('cancel')">Cancel</button>
+  </div>
+
+  <div id="endCheckPrompt" class="hidden bg-green-100 p-4 rounded border border-green-300">
+    <p>End check-in: Are you okay?</p>
+    <button class="bg-green-500 text-white px-3 py-1 m-1 rounded" onclick="handleEndCheckin('ok')">Yes</button>
+    <button class="bg-red-500 text-white px-3 py-1 m-1 rounded" onclick="handleEndCheckin('not_ok')">No</button>
+  </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getFirestore, collection, query, where, addDoc, updateDoc, doc, getDocs, onSnapshot, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getFirestore, collection, addDoc, updateDoc, doc, query, where, getDocs, onSnapshot, Timestamp, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const config = {
       apiKey: "AIzaSyAV52Ads-ckhKuGsKvHoYYTrDIqBHMHusQ",
@@ -68,120 +83,176 @@
     let promptedDocId = null;
     const promptedDocs = new Set();
 
-    function log(msg) {
-      const el = document.createElement("div");
-      el.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-      document.getElementById("logBox").appendChild(el);
-    }
+    const logToMonitor = (msg) => {
+      const el = document.getElementById("monitorLog");
+      const time = new Date().toLocaleTimeString("en-AU", { timeZone: "Australia/Brisbane" });
+      const line = document.createElement("div");
+      line.textContent = `[${time}] ${msg}`;
+      el.appendChild(line);
+      el.scrollTop = el.scrollHeight;
+    };
 
-    function showPrompt(type) {
-      const box = document.getElementById("promptBox");
-      const text = document.getElementById("promptText");
-      box.classList.remove("hidden");
-      if (type === "start") text.textContent = "Start Check-In";
-      else if (type === "midpoint") text.textContent = "Midpoint Check-In";
-      else if (type === "end") text.textContent = "End Check-In";
-    }
+    const updateClock = () => {
+      const el = document.getElementById("clockDisplay");
+      el.textContent = new Date().toLocaleTimeString("en-AU", { timeZone: "Australia/Brisbane" });
+    };
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    const checkStartTimes = (docs) => {
+      const now = Math.floor(Date.now() / 1000);
+      docs.forEach(docSnap => {
+        const data = docSnap.data();
+        const docId = docSnap.id;
+        const start = data.startTime?.seconds;
+        if (start && now >= start && now - start < 60 && !data.initialCheckinDone && !promptedDocs.has(docId)) {
+          promptedDocId = docId;
+          promptedDocs.add(docId);
+          document.getElementById("checkinPrompt").classList.remove("hidden");
+          logToMonitor(`Start time reached for ${data.contactName}. Prompting...`);
+        }
+      });
+    };
+
+    const checkEndTimes = (docs) => {
+      const now = Math.floor(Date.now() / 1000);
+      docs.forEach(docSnap => {
+        const data = docSnap.data();
+        const docId = docSnap.id;
+        const end = data.endTime?.seconds;
+        if (end && now >= end && now - end < 60 && !data.finalCheckinDone && !promptedDocs.has(`end-${docId}`)) {
+          promptedDocId = docId;
+          promptedDocs.add(`end-${docId}`);
+          document.getElementById("endCheckPrompt").classList.remove("hidden");
+          logToMonitor(`End time reached for ${data.contactName}. Prompting end check-in...`);
+        }
+      });
+    };
+
+    const checkMidpointTimes = (docs) => {
+      const now = Math.floor(Date.now() / 1000);
+      docs.forEach(docSnap => {
+        const data = docSnap.data();
+        const docId = docSnap.id;
+        const start = data.startTime?.seconds;
+        const end = data.endTime?.seconds; // Get end time for midpoint calculation
+        if (data.checkInType !== "10min" || data.midpointCheckinDone) return;
+
+        // Calculate midpoint only if both start and end times exist
+        if (start && end) {
+          const midpoint = start + Math.floor((end - start) / 2); // Correct midpoint calculation
+          if (now >= midpoint && now - midpoint < 60 && !promptedDocs.has(`midpoint-${docId}`)) {
+            promptedDocId = docId;
+            promptedDocs.add(`midpoint-${docId}`);
+            document.getElementById("endCheckPrompt").classList.remove("hidden"); // Use endCheckPrompt for midpoint
+            logToMonitor(`Midpoint check-in due for ${data.contactName}. Prompting...`);
+          }
+        }
+      });
+    };
 
     window.handleCheckin = async (type) => {
       if (!currentUser || !promptedDocId) return;
       const ref = doc(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous/${promptedDocId}`);
-      const updates = {};
-      if (type === "start" || type === "late") {
-        updates.initialCheckinDone = true;
-        updates.initialCheckinResponse = type;
+      const snap = await getDoc(ref);
+      const data = snap.data();
+      const update = {};
+      if (!data.initialCheckinDone) {
+        update.initialCheckinDone = true;
+        update.initialCheckinResponse = type;
+        logToMonitor(`Logged initial check-in response: ${type}`);
+        document.getElementById("checkinPrompt").classList.add("hidden");
       }
-      if (type === "midpoint_ok" || type === "midpoint_not_ok") {
-        updates.midpointCheckinDone = true;
-        updates.midpointCheckinResponse = type;
-      }
-      if (type === "end_ok" || type === "end_not_ok") {
-        updates.endCheckinDone = true;
-        updates.endCheckinResponse = type;
-      }
-      await updateDoc(ref, updates);
-      document.getElementById("promptBox").classList.add("hidden");
-      log(`Logged check-in response: ${type}`);
+      // Midpoint check-in should use the handleEndCheckin flow, not handleCheckin
+      await updateDoc(ref, update);
     };
 
-    async function checkActive() {
-      if (!currentUser) return;
-      const q = query(collection(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous`), where("status", "==", "active"));
-      const snap = await getDocs(q);
-      const now = Math.floor(Date.now() / 1000);
+    window.handleEndCheckin = async (val) => {
+      if (!currentUser || !promptedDocId) return;
+      const docId = promptedDocId; // Store for current operation
 
-      snap.docs.forEach(docSnap => {
-        const data = docSnap.data();
-        const start = data.startTime?.seconds;
-        const end = data.endTime?.seconds;
-        const midpoint = start + 60;
+      const ref = doc(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous/${docId}`);
+      const snap = await getDoc(ref);
+      const data = snap.data();
+      const update = {};
 
-        if (!promptedDocs.has(docSnap.id)) {
-          if (start && now >= start && now - start < 60 && !data.initialCheckinDone) {
-            promptedDocId = docSnap.id;
-            promptedDocs.add(docSnap.id);
-            showPrompt("start");
-            log(`Start time reached for ${data.contactName}. Prompting...`);
-          } else if (data.initialCheckinDone && !data.midpointCheckinDone && now >= midpoint && now - midpoint < 60) {
-            promptedDocId = docSnap.id;
-            promptedDocs.add(docSnap.id);
-            showPrompt("midpoint");
-            log(`Midpoint check-in due for ${data.contactName}. Prompting...`);
-          } else if (data.midpointCheckinDone && !data.endCheckinDone && now >= end && now - end < 60) {
-            promptedDocId = docSnap.id;
-            promptedDocs.add(docSnap.id);
-            showPrompt("end");
-            log(`End time reached for ${data.contactName}. Prompting end check-in...`);
-          }
-        }
-      });
-    }
+      if (promptedDocs.has(`midpoint-${docId}`) && data.checkInType === "10min" && !data.midpointCheckinDone) {
+        // This is a midpoint check-in
+        update.midpointCheckinDone = true;
+        update.midpointCheckinResponse = val;
+        logToMonitor(`Logged midpoint check-in: ${val}`);
+      } else if (promptedDocs.has(`end-${docId}`) && !data.finalCheckinDone) {
+        // This is an end check-in
+        update.finalCheckinDone = true;
+        update.finalCheckinResponse = val;
+        logToMonitor(`Logged end check-in: ${val}`);
+      }
+      await updateDoc(ref, update);
+      document.getElementById("endCheckPrompt").classList.add("hidden");
+      // Clear promptedDocId and remove from promptedDocs after handling
+      promptedDocId = null;
+      promptedDocs.delete(`midpoint-${docId}`);
+      promptedDocs.delete(`end-${docId}`);
+    };
 
-    setInterval(checkActive, 1000);
-
-    document.getElementById("submitBtn").onclick = async () => {
-      const name = document.getElementById("contactName").value;
-      const checkinType = document.getElementById("checkinType").value;
+    document.getElementById("submitRdv").addEventListener("click", async () => {
+      if (!currentUser) return alert("Not signed in");
+      const contactName = document.getElementById("contactName").value;
+      const checkInType = document.getElementById("checkInType").value;
       const start = new Date(document.getElementById("startTime").value);
       const end = new Date(document.getElementById("endTime").value);
-
-      const docRef = await addDoc(collection(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous`), {
-        contactName: name,
-        checkInType: checkinType,
-        userId: currentUser.uid,
+      const ref = await addDoc(collection(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous`), {
+        contactName, checkInType,
         startTime: Timestamp.fromDate(start),
         endTime: Timestamp.fromDate(end),
-        status: "active",
         createdAt: Timestamp.now(),
         initialCheckinDone: false,
         midpointCheckinDone: false,
-        endCheckinDone: false
+        finalCheckinDone: false,
+        mode: "normal",
+        status: "active"
       });
-      log(`Created rendezvous: ${name}`);
-    };
-
-    document.getElementById("signInBtn").onclick = async () => {
-      const email = document.getElementById("email").value;
-      const pw = document.getElementById("password").value;
-      await signInWithEmailAndPassword(auth, email, pw);
-    };
-
-    document.getElementById("signUpBtn").onclick = async () => {
-      const email = document.getElementById("email").value;
-      const pw = document.getElementById("password").value;
-      await createUserWithEmailAndPassword(auth, email, pw);
-    };
-
-    document.getElementById("signOutBtn").onclick = () => signOut(auth);
-
-    onAuthStateChanged(auth, (user) => {
-      currentUser = user;
-      document.getElementById("userEmail").textContent = user?.email || "None";
-      document.getElementById("userId").textContent = user?.uid || "None";
+      logToMonitor(`Created rendezvous: ${contactName}`);
     });
 
-    setInterval(() => {
-      document.getElementById("clock").textContent = new Date().toLocaleTimeString();
+    document.getElementById("signUpBtn").addEventListener("click", async () => {
+      const email = document.getElementById("authEmail").value;
+      const pw = document.getElementById("authPassword").value;
+      await createUserWithEmailAndPassword(auth, email, pw);
+    });
+
+    document.getElementById("signInBtn").addEventListener("click", async () => {
+      const email = document.getElementById("authEmail").value;
+      const pw = document.getElementById("authPassword").value;
+      await signInWithEmailAndPassword(auth, email, pw);
+    });
+
+    document.getElementById("signOutBtn").addEventListener("click", () => signOut(auth));
+
+    onAuthStateChanged(auth, (user) => {
+      currentUser = user || null;
+      document.getElementById("currentUserDisplay").textContent = user?.email || "Not authenticated";
+      document.getElementById("currentUidDisplay").textContent = user?.uid || "N/A";
+      if (user) {
+        const q = query(collection(db, `artifacts/meetsafe-clean-core/users/${user.uid}/rendezvous`), where("status", "==", "active"));
+        onSnapshot(q, (snap) => {
+          snap.docChanges().forEach(change => {
+            const data = change.doc.data();
+            const action = change.type.toUpperCase();
+            logToMonitor(`${action} ${data.contactName}`);
+          });
+        });
+      }
+    });
+
+    setInterval(async () => {
+      if (!currentUser) return;
+      const q = query(collection(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous`), where("status", "==", "active"));
+      const snap = await getDocs(q);
+      const docs = snap.docs;
+      checkStartTimes(docs);
+      checkMidpointTimes(docs);
+      checkEndTimes(docs);
     }, 1000);
   </script>
 </body>
