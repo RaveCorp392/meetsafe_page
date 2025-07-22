@@ -1,125 +1,146 @@
+<!-- MeetSafe Console (Start, Midpoint, End Check-ins) -->
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>MeetSafe Web Console</title>
   <meta charset="UTF-8" />
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <title>MeetSafe Console</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background-color: #f3f4f6;
+      font-family: 'Inter', sans-serif;
+    }
+    .log-area { overflow-y: scroll; height: 150px; background: #111; color: white; padding: 10px; font-size: 0.9rem; }
+  </style>
 </head>
-<body class="bg-gray-100 text-black">
-  <div class="max-w-2xl mx-auto p-4">
-    <h1 class="text-2xl font-bold mb-4">MeetSafe Web Console</h1>
+<body class="p-6 space-y-6">
+  <h1 class="text-3xl font-bold">MeetSafe Console</h1>
 
-    <div class="mb-4">
-      <strong>Authentication</strong><br />
-      <input id="email" type="email" placeholder="Email" class="border p-1" />
-      <input id="password" type="password" placeholder="Password" class="border p-1" />
-      <button onclick="signUp()" class="bg-blue-500 text-white px-2 py-1">Sign Up</button>
-      <button onclick="signIn()" class="bg-green-500 text-white px-2 py-1">Sign In</button>
-      <button onclick="signOut()" class="bg-red-500 text-white px-2 py-1">Sign Out</button>
-      <p>Current User: <span id="currentUserEmail">-</span></p>
-      <p>User ID: <span id="currentUserId">-</span></p>
-    </div>
-
-    <div class="mb-4 border p-4 bg-white shadow rounded">
-      <h2 class="font-semibold mb-2">Create Rendezvous</h2>
-      <input id="name" placeholder="Name" class="border p-1 w-full mb-2" />
-      <select id="checkinType" class="border p-1 w-full mb-2">
-        <option>No Check-In</option>
-        <option>10-Minute Check-In</option>
-        <option>Midpoint Check-In</option>
-      </select>
-      <input id="startTime" type="datetime-local" class="border p-1 w-full mb-2" />
-      <input id="endTime" type="datetime-local" class="border p-1 w-full mb-2" />
-      <button onclick="createRendezvous()" class="bg-green-600 text-white px-4 py-2">Submit</button>
-    </div>
-
-    <div>
-      <p><strong>Current Time</strong></p>
-      <p id="currentTime" class="mb-2"></p>
-    </div>
-
-    <div class="bg-black text-white p-3 font-mono text-sm h-64 overflow-auto" id="logOutput"></div>
+  <div>
+    <h2 class="text-xl font-semibold">Create Rendezvous</h2>
+    <input id="contactName" placeholder="Contact Name" class="p-2 border rounded w-full my-2" />
+    <input id="startTime" type="datetime-local" class="p-2 border rounded w-full my-2" />
+    <input id="endTime" type="datetime-local" class="p-2 border rounded w-full my-2" />
+    <button id="submitBtn" class="bg-blue-600 text-white px-4 py-2 rounded">Submit</button>
   </div>
 
-  <script>
-    const firebaseConfig = {
+  <div id="checkinPrompt" class="hidden border p-4 rounded bg-yellow-100">
+    <p id="checkinTitle" class="font-semibold mb-2">Check-in prompt:</p>
+    <button onclick="handleCheckin('ok')" class="bg-green-500 text-white px-3 py-1 rounded">OK</button>
+    <button onclick="handleCheckin('not_ok')" class="bg-red-500 text-white px-3 py-1 rounded">Not OK</button>
+  </div>
+
+  <div>
+    <h2 class="text-lg font-semibold">Realtime Monitor</h2>
+    <div id="monitorLog" class="log-area"></div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getFirestore, collection, addDoc, query, where, getDocs, Timestamp, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const app = initializeApp({
       apiKey: "AIzaSyAV52Ads-ckhKuGsKvHoYYTrDIqBHMHusQ",
       authDomain: "meetsafe-clean-core.firebaseapp.com",
-      projectId: "meetsafe-clean-core",
-      storageBucket: "meetsafe-clean-core.appspot.com",
-      messagingSenderId: "970833854934",
-      appId: "1:970833854934:web:5ae847503baa2c6c552477",
-      measurementId: "G-E6LBFE2SEB"
+      projectId: "meetsafe-clean-core"
+    });
+
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    let currentUser = null;
+    let prompted = new Set();
+
+    const log = (msg) => {
+      const logArea = document.getElementById("monitorLog");
+      logArea.innerHTML += `[${new Date().toLocaleTimeString()}] ${msg}<br>`;
+      logArea.scrollTop = logArea.scrollHeight;
     };
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-    let currentUser = null;
-
-    function log(msg) {
-      const output = document.getElementById("logOutput");
-      output.innerText += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
-      output.scrollTop = output.scrollHeight;
-    }
-
-    firebase.auth().onAuthStateChanged((user) => {
+    onAuthStateChanged(auth, (user) => {
       if (user) {
         currentUser = user;
-        document.getElementById("currentUserEmail").innerText = user.email;
-        document.getElementById("currentUserId").innerText = user.uid;
-        log(`Signed in as ${user.email}`);
-      } else {
-        currentUser = null;
-        document.getElementById("currentUserEmail").innerText = "-";
-        document.getElementById("currentUserId").innerText = "-";
+        log(`Authenticated as ${user.uid}`);
       }
     });
 
-    function signUp() {
-      const email = document.getElementById("email").value;
-      const pass = document.getElementById("password").value;
-      firebase.auth().createUserWithEmailAndPassword(email, pass).catch(err => log(err.message));
-    }
+    signInAnonymously(auth).catch((err) => log("Auth error: " + err.message));
 
-    function signIn() {
-      const email = document.getElementById("email").value;
-      const pass = document.getElementById("password").value;
-      firebase.auth().signInWithEmailAndPassword(email, pass).catch(err => log(err.message));
-    }
-
-    function signOut() {
-      firebase.auth().signOut();
-    }
-
-    function createRendezvous() {
-      if (!currentUser) return log("You must be signed in");
-
-      const name = document.getElementById("name").value;
-      const checkinType = document.getElementById("checkinType").value;
+    document.getElementById("submitBtn").addEventListener("click", async () => {
+      const name = document.getElementById("contactName").value;
       const start = new Date(document.getElementById("startTime").value);
       const end = new Date(document.getElementById("endTime").value);
+      if (!currentUser) return alert("Not signed in");
 
-      const doc = {
-        user: currentUser.uid,
-        name,
-        checkinType,
-        startTime: firebase.firestore.Timestamp.fromDate(start),
-        endTime: firebase.firestore.Timestamp.fromDate(end),
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        status: "scheduled"
-      };
+      await addDoc(collection(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous`), {
+        contactName: name,
+        startTime: Timestamp.fromDate(start),
+        endTime: Timestamp.fromDate(end),
+        createdAt: Timestamp.now(),
+        status: "active",
+        userId: currentUser.uid,
+        startCheckinDone: false,
+        midpointCheckinDone: false,
+        endCheckinDone: false
+      });
+      log(`Rendezvous "${name}" created.`);
+    });
 
-      db.collection("rendezvous").add(doc).then(() => {
-        log(`Created rendezvous: ${name}`);
-      }).catch((e) => log(`Error: ${e.message}`));
-    }
+    const handleCheckin = async (response) => {
+      if (!window.promptDocId || !window.promptType) return;
+      const ref = doc(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous/${window.promptDocId}`);
+      const updateField = `${window.promptType}CheckinDone`;
+      const responseField = `${window.promptType}CheckinResponse`;
+      await updateDoc(ref, {
+        [updateField]: true,
+        [responseField]: response
+      });
+      log(`✔️ ${window.promptType} check-in: ${response}`);
+      document.getElementById("checkinPrompt").classList.add("hidden");
+    };
 
-    setInterval(() => {
-      document.getElementById("currentTime").innerText = new Date().toLocaleTimeString();
-    }, 1000);
+    setInterval(async () => {
+      if (!currentUser) return;
+      const snapshot = await getDocs(query(collection(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous`), where("status", "==", "active")));
+      const now = Date.now();
+
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        const id = docSnap.id;
+
+        if (prompted.has(`${id}_start`) || data.startCheckinDone) return;
+
+        const start = data.startTime?.toDate()?.getTime();
+        if (start && Math.abs(now - start) < 30000) {
+          window.promptDocId = id;
+          window.promptType = "start";
+          prompted.add(`${id}_start`);
+          document.getElementById("checkinTitle").textContent = "Start Check-in: Are you OK?";
+          document.getElementById("checkinPrompt").classList.remove("hidden");
+          log("🟡 Prompting START check-in");
+        }
+
+        const midpoint = start + 60000;
+        if (!prompted.has(`${id}_mid`) && !data.midpointCheckinDone && now >= midpoint && now - midpoint < 30000) {
+          window.promptDocId = id;
+          window.promptType = "midpoint";
+          prompted.add(`${id}_mid`);
+          document.getElementById("checkinTitle").textContent = "Midpoint Check-in: Are you OK?";
+          document.getElementById("checkinPrompt").classList.remove("hidden");
+          log("🟠 Prompting MIDPOINT check-in");
+        }
+
+        const end = data.endTime?.toDate()?.getTime();
+        if (!prompted.has(`${id}_end`) && !data.endCheckinDone && now >= end && now - end < 30000) {
+          window.promptDocId = id;
+          window.promptType = "end";
+          prompted.add(`${id}_end`);
+          document.getElementById("checkinTitle").textContent = "End Check-in: Are you OK?";
+          document.getElementById("checkinPrompt").classList.remove("hidden");
+          log("🔴 Prompting END check-in");
+        }
+      });
+    }, 5000);
   </script>
 </body>
 </html>
