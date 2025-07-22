@@ -112,7 +112,16 @@
 
     // Firebase configuration provided by the Canvas environment
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-    const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+    // Use a default config if __firebase_config is not provided (e.g., local development)
+    const defaultFirebaseConfig = {
+      apiKey: "YOUR_FIREBASE_API_KEY", // <--- REPLACE WITH YOUR ACTUAL API KEY
+      authDomain: "YOUR_FIREBASE_PROJECT_ID.firebaseapp.com", // <--- REPLACE WITH YOUR ACTUAL PROJECT ID
+      projectId: "YOUR_FIREBASE_PROJECT_ID", // <--- REPLACE WITH YOUR ACTUAL PROJECT ID
+      storageBucket: "YOUR_FIREBASE_PROJECT_ID.appspot.com",
+      messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : defaultFirebaseConfig;
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
