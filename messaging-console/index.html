@@ -129,6 +129,8 @@
     const db = getFirestore(app);
     let currentUser = null;
     let isProUser = false;
+    let currentUserId = null; // Store the actual authenticated user ID
+
     let userContacts = []; // Store contacts for the current user
 
     // Map to track message counts for free users per contact (identifier -> count)
@@ -195,6 +197,7 @@
         renderContacts();
         populateRecipientDropdown();
         freeUserMessageCounts.clear(); // Clear message counts
+        currentUserId = null; // Clear current user ID
       } catch (error) {
         logToMonitor(`Sign out error: ${error.message}`, "error");
       }
@@ -202,23 +205,25 @@
 
     onAuthStateChanged(auth, (user) => {
       currentUser = user || null;
+      currentUserId = user?.uid || null; // Set currentUserId from authenticated user
       document.getElementById("currentUserDisplay").textContent = user?.email || "Not authenticated";
-      // Use the authenticated user's UID or a generated one for anonymous users
-      const userId = currentUser?.uid || crypto.randomUUID();
-      document.getElementById("currentUidDisplay").textContent = userId;
+      document.getElementById("currentUidDisplay").textContent = currentUserId || "N/A"; // Display the actual UID
 
       if (currentUser) {
         logToMonitor(`Authenticated as: ${currentUser.email || 'Anonymous'} (UID: ${currentUser.uid})`, "info");
         // Listen for contacts for the current user
-        const contactsQuery = query(collection(db, `artifacts/${appId}/users/${currentUser.uid}/contacts`));
-        onSnapshot(contactsQuery, (snapshot) => {
-          userContacts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          renderContacts();
-          populateRecipientDropdown();
-          logToMonitor("Contacts updated.", "info");
-        }, (error) => {
-          logToMonitor(`Error fetching contacts: ${error.message}`, "error");
-        });
+        // Ensure currentUserId is available before querying
+        if (currentUserId) {
+          const contactsQuery = query(collection(db, `artifacts/${appId}/users/${currentUserId}/contacts`));
+          onSnapshot(contactsQuery, (snapshot) => {
+            userContacts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            renderContacts();
+            populateRecipientDropdown();
+            logToMonitor("Contacts updated.", "info");
+          }, (error) => {
+            logToMonitor(`Error fetching contacts: ${error.message}`, "error");
+          });
+        }
       } else {
         logToMonitor("Not authenticated.", "info");
       }
@@ -232,7 +237,7 @@
 
     // --- Contact Management Logic ---
     document.getElementById("addContactBtn").addEventListener("click", async () => {
-      if (!currentUser) {
+      if (!currentUser || !currentUserId) { // Check for currentUserId as well
         logToMonitor("Please sign in to add contacts.", "warning");
         return;
       }
@@ -246,11 +251,12 @@
       }
 
       try {
-        await addDoc(collection(db, `artifacts/${appId}/users/${currentUser.uid}/contacts`), {
+        await addDoc(collection(db, `artifacts/${appId}/users/${currentUserId}/contacts`), { // Use currentUserId
           name,
           identifier, // This can be email (for app) or phone number (for SMS)
           method,
-          createdAt: Timestamp.now()
+          createdAt: Timestamp.now(),
+          userId: currentUserId // Store userId in the contact document for security rules
         });
         logToMonitor(`Contact '${name}' added successfully.`, "success");
         document.getElementById("contactName").value = "";
@@ -287,7 +293,7 @@
 
     // --- Messaging Logic ---
     document.getElementById("sendMessageBtn").addEventListener("click", async () => {
-      if (!currentUser) {
+      if (!currentUser || !currentUserId) { // Check for currentUserId
         logToMonitor("Please sign in to send messages.", "warning");
         return;
       }
@@ -319,9 +325,9 @@
       }
 
       try {
-        const messageRef = await addDoc(collection(db, `artifacts/${appId}/messages/${testRendezvousId}/messages`), {
+        await addDoc(collection(db, `artifacts/${appId}/messages/${testRendezvousId}/messages`), {
           to: recipientContact.identifier, // UID or Phone Number
-          from: currentUser.uid,
+          from: currentUserId, // Use currentUserId
           sentAt: Timestamp.now(),
           delivered: false, // Will be updated on delivery confirmation
           method: recipientContact.method,
