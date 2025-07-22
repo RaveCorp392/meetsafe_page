@@ -107,15 +107,12 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
     import { getFirestore, collection, addDoc, updateDoc, doc, query, where, getDocs, onSnapshot, Timestamp, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    // Firebase configuration (use your existing project config)
-    const firebaseConfig = {
-      apiKey: "AIzaSyAV52Ads-ckhKuGsKvHoYYTrDIqBHMHusQ",
-      authDomain: "meetsafe-clean-core.firebaseapp.com",
-      projectId: "meetsafe-clean-core"
-    };
+    // Firebase configuration provided by the Canvas environment
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
@@ -142,6 +139,22 @@
     };
 
     // --- Authentication Logic ---
+    // Initial sign-in using custom token if available, otherwise anonymously
+    const initialAuth = async () => {
+      try {
+        if (typeof __initial_auth_token !== 'undefined') {
+          await signInWithCustomToken(auth, __initial_auth_token);
+          logToMonitor("Signed in with custom token.", "success");
+        } else {
+          await signInAnonymously(auth);
+          logToMonitor("Signed in anonymously.", "info");
+        }
+      } catch (error) {
+        logToMonitor(`Initial authentication error: ${error.message}`, "error");
+      }
+    };
+    initialAuth(); // Call immediately on script load
+
     document.getElementById("signUpBtn").addEventListener("click", async () => {
       const email = document.getElementById("authEmail").value;
       const pw = document.getElementById("authPassword").value;
@@ -180,11 +193,14 @@
     onAuthStateChanged(auth, (user) => {
       currentUser = user || null;
       document.getElementById("currentUserDisplay").textContent = user?.email || "Not authenticated";
-      document.getElementById("currentUidDisplay").textContent = user?.uid || "N/A";
-      if (user) {
-        logToMonitor(`Authenticated as: ${user.email} (UID: ${user.uid})`, "info");
+      // Use the authenticated user's UID or a generated one for anonymous users
+      const userId = currentUser?.uid || crypto.randomUUID();
+      document.getElementById("currentUidDisplay").textContent = userId;
+
+      if (currentUser) {
+        logToMonitor(`Authenticated as: ${currentUser.email || 'Anonymous'} (UID: ${currentUser.uid})`, "info");
         // Listen for contacts for the current user
-        const contactsQuery = query(collection(db, `artifacts/meetsafe-clean-core/users/${user.uid}/contacts`));
+        const contactsQuery = query(collection(db, `artifacts/${appId}/users/${currentUser.uid}/contacts`));
         onSnapshot(contactsQuery, (snapshot) => {
           userContacts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
           renderContacts();
@@ -220,7 +236,7 @@
       }
 
       try {
-        await addDoc(collection(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/contacts`), {
+        await addDoc(collection(db, `artifacts/${appId}/users/${currentUser.uid}/contacts`), {
           name,
           identifier, // This can be email (for app) or phone number (for SMS)
           method,
@@ -293,7 +309,7 @@
       }
 
       try {
-        const messageRef = await addDoc(collection(db, `artifacts/meetsafe-clean-core/messages/${testRendezvousId}/messages`), {
+        const messageRef = await addDoc(collection(db, `artifacts/${appId}/messages/${testRendezvousId}/messages`), {
           to: recipientContact.identifier, // UID or Phone Number
           from: currentUser.uid,
           sentAt: Timestamp.now(),
@@ -350,14 +366,16 @@
           if (!messageData.delivered && messageData.method === "app") { // Double check if not delivered and was an app message
             logToMonitor(`In-app message to ${recipientContact.name} not confirmed delivered within 60s. Checking fallback...`, "warning");
             if (isProUser) { // Only Pro users have SMS fallback
-              if (recipientContact.method === "app" && recipientContact.identifier.includes('@')) { // Assuming email for app, phone for SMS
-                 // In a real app, you'd need to resolve UID to phone number or have phone in contact
-                 logToMonitor(`SMS fallback initiated for ${recipientContact.name} (Pro User).`, "info");
-                 // Simulate SMS sending
+              // For SMS fallback, we need a phone number. If identifier is email (for app), this is a limitation in simulation.
+              // In a real app, you'd resolve the contact's UID to their registered phone number.
+              if (recipientContact.method === "app" && recipientContact.identifier.includes('@')) {
+                 logToMonitor(`SMS fallback initiated for ${recipientContact.name} (Pro User). Note: Phone number for fallback not available in this simulation.`, "info");
+                 // Simulate SMS sending by marking as delivered via fallback
                  await updateDoc(messageRef, { fallback: "sms", delivered: true }); // Mark delivered after fallback
                  logToMonitor(`SMS fallback to ${recipientContact.name}'s phone number (simulated) sent.`, "success");
-              } else {
-                 logToMonitor(`Cannot fallback to SMS for ${recipientContact.name}: No phone number or method is not app.`, "warning");
+              } else if (recipientContact.method === "sms") {
+                 // This case should ideally not happen as it's already an SMS method, but for robustness:
+                 logToMonitor(`SMS fallback not needed for ${recipientContact.name} as method is already SMS.`, "info");
               }
             } else {
               logToMonitor(`SMS fallback not available for Free User (${recipientContact.name}).`, "warning");
