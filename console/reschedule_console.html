@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>MeetSafe Reschedule Console</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="p-4 font-sans space-y-6 bg-gray-100 text-sm">
+  <h1 class="text-2xl font-bold">MeetSafe Reschedule Console</h1>
+
+  <!-- Auth Section -->
+  <div class="space-y-2">
+    <input id="authEmail" placeholder="Email" class="p-2 border rounded" />
+    <input id="authPassword" type="password" placeholder="Password" class="p-2 border rounded" />
+    <button id="signUpBtn" class="bg-blue-500 text-white px-3 py-1 rounded">Sign Up</button>
+    <button id="signInBtn" class="bg-green-500 text-white px-3 py-1 rounded">Sign In</button>
+    <button id="signOutBtn" class="bg-red-500 text-white px-3 py-1 rounded">Sign Out</button>
+    <p>Signed in as: <span id="currentUserDisplay">None</span></p>
+  </div>
+
+  <!-- Rendezvous List and Edit -->
+  <div class="space-y-2">
+    <h2 class="text-lg font-semibold">Your Active Rendezvous</h2>
+    <div id="rdvList" class="space-y-2"></div>
+  </div>
+
+  <!-- Edit Section -->
+  <div id="editSection" class="hidden space-y-2 border p-4 bg-white rounded shadow">
+    <h2 class="text-lg font-semibold">Edit Rendezvous</h2>
+    <input id="editContactName" class="p-2 border rounded w-full" />
+    <select id="editCheckInType" class="p-2 border rounded w-full">
+      <option value="none">No Check-In</option>
+      <option value="10min">10-Min Check-In</option>
+    </select>
+    <input id="editStartTime" type="datetime-local" class="p-2 border rounded w-full" />
+    <input id="editEndTime" type="datetime-local" class="p-2 border rounded w-full" />
+    <button id="saveEditBtn" class="bg-blue-600 text-white px-4 py-1 rounded">Save Changes</button>
+  </div>
+
+  <!-- Monitor -->
+  <div>
+    <h2 class="text-lg font-semibold">Console Log</h2>
+    <div id="log" class="bg-black text-white p-2 h-48 overflow-y-scroll text-xs rounded"></div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getFirestore, collection, query, where, onSnapshot, doc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const config = {
+      apiKey: "AIzaSyAV52Ads-ckhKuGsKvHoYYTrDIqBHMHusQ",
+      authDomain: "meetsafe-clean-core.firebaseapp.com",
+      projectId: "meetsafe-clean-core"
+    };
+
+    const app = initializeApp(config);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    let currentUser = null;
+    let editingDocId = null;
+
+    const log = (msg) => {
+      const div = document.createElement("div");
+      div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+      document.getElementById("log").appendChild(div);
+    };
+
+    const renderRendezvous = (docs) => {
+      const container = document.getElementById("rdvList");
+      container.innerHTML = "";
+      docs.forEach(docSnap => {
+        const data = docSnap.data();
+        const btn = document.createElement("button");
+        btn.textContent = `${data.contactName} | ${data.checkInType} | Start: ${new Date(data.startTime.seconds * 1000).toLocaleTimeString()}`;
+        btn.className = "bg-gray-200 px-3 py-1 rounded w-full text-left";
+        btn.onclick = () => {
+          editingDocId = docSnap.id;
+          document.getElementById("editSection").classList.remove("hidden");
+          document.getElementById("editContactName").value = data.contactName;
+          document.getElementById("editCheckInType").value = data.checkInType;
+          document.getElementById("editStartTime").value = new Date(data.startTime.seconds * 1000).toISOString().slice(0, 16);
+          document.getElementById("editEndTime").value = new Date(data.endTime.seconds * 1000).toISOString().slice(0, 16);
+        };
+        container.appendChild(btn);
+      });
+    };
+
+    document.getElementById("saveEditBtn").onclick = async () => {
+      const contactName = document.getElementById("editContactName").value;
+      const checkInType = document.getElementById("editCheckInType").value;
+      const startTime = new Date(document.getElementById("editStartTime").value);
+      const endTime = new Date(document.getElementById("editEndTime").value);
+      const ref = doc(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous/${editingDocId}`);
+      await updateDoc(ref, {
+        contactName,
+        checkInType,
+        startTime: Timestamp.fromDate(startTime),
+        endTime: Timestamp.fromDate(endTime),
+        updatedAt: Timestamp.now()
+      });
+      log(`Updated rendezvous: ${contactName}`);
+      document.getElementById("editSection").classList.add("hidden");
+    };
+
+    document.getElementById("signUpBtn").onclick = async () => {
+      const email = document.getElementById("authEmail").value;
+      const pw = document.getElementById("authPassword").value;
+      await createUserWithEmailAndPassword(auth, email, pw);
+    };
+
+    document.getElementById("signInBtn").onclick = async () => {
+      const email = document.getElementById("authEmail").value;
+      const pw = document.getElementById("authPassword").value;
+      await signInWithEmailAndPassword(auth, email, pw);
+    };
+
+    document.getElementById("signOutBtn").onclick = () => signOut(auth);
+
+    onAuthStateChanged(auth, (user) => {
+      currentUser = user;
+      document.getElementById("currentUserDisplay").textContent = user?.email || "None";
+      if (user) {
+        const q = query(collection(db, `artifacts/meetsafe-clean-core/users/${user.uid}/rendezvous`), where("status", "==", "active"));
+        onSnapshot(q, (snap) => {
+          renderRendezvous(snap.docs);
+        });
+      }
+    });
+  </script>
+</body>
+</html>
