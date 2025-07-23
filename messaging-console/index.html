@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>MeetSafe Messaging Console</title>
+  <title>MeetSafe Messaging Console (Sender)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body {
@@ -28,106 +28,79 @@
     }
   </style>
 </head>
-<body class="p-6 space-y-8 flex flex-col lg:flex-row lg:space-x-8">
-  <div class="lg:w-1/2 space-y-8">
-    <h1 class="text-3xl font-bold">MeetSafe Messaging Console (Sender)</h1>
+<body class="p-6 space-y-8">
+  <h1 class="text-3xl font-bold">MeetSafe Messaging Console (Sender)</h1>
 
-    <!-- Auth UI (Sender) -->
-    <div class="bg-white p-4 rounded shadow">
-      <h2 class="text-xl font-semibold mb-3">Authentication (Sender)</h2>
-      <input id="authEmailSender" type="email" class="input-field" placeholder="Email" value="sender@example.com"/>
-      <input id="authPasswordSender" type="password" class="input-field" placeholder="Password" value="password123"/>
-      <div class="flex space-x-2 mt-2">
-        <button id="signUpBtnSender" class="button-primary bg-blue-500">Sign Up</button>
-        <button id="signInBtnSender" class="button-primary bg-green-500">Sign In</button>
-        <button id="signOutBtnSender" class="button-primary bg-red-500">Sign Out</button>
-      </div>
-      <p class="mt-4 text-sm">Current User: <span id="currentUserDisplaySender" class="font-medium">Not authenticated</span><br>User ID: <span id="currentUidDisplaySender" class="font-medium">N/A</span></p>
-      <div class="mt-4">
-        <label class="inline-flex items-center">
-          <input type="checkbox" id="isProUserSender" class="form-checkbox h-5 w-5 text-blue-600 rounded">
-          <span class="ml-2 text-gray-700">Simulate Pro User</span>
-        </label>
-      </div>
+  <!-- Auth UI (Sender) -->
+  <div class="bg-white p-4 rounded shadow">
+    <h2 class="text-xl font-semibold mb-3">Authentication (Sender)</h2>
+    <input id="authEmailSender" type="email" class="input-field" placeholder="Email" value="sender@example.com"/>
+    <input id="authPasswordSender" type="password" class="input-field" placeholder="Password" value="password123"/>
+    <div class="flex space-x-2 mt-2">
+      <button id="signUpBtnSender" class="button-primary bg-blue-500">Sign Up</button>
+      <button id="signInBtnSender" class="button-primary bg-green-500">Sign In</button>
+      <button id="signOutBtnSender" class="button-primary bg-red-500">Sign Out</button>
     </div>
-
-    <!-- Trusted Contacts Management -->
-    <div class="bg-white p-4 rounded shadow">
-      <h2 class="text-xl font-semibold mb-3">Trusted Contacts</h2>
-      <input id="contactName" class="input-field" placeholder="Contact Name"/>
-      <input id="contactEmail" type="email" class="input-field" placeholder="Contact Email (for app)"/>
-      <input id="contactPhone" type="tel" class="input-field" placeholder="Contact Phone (for SMS fallback)"/>
-      <select id="contactMethod" class="input-field">
-        <option value="app">App (Primary)</option>
-        <option value="sms">SMS (Primary)</option>
-      </select>
-      <button id="addContactBtn" class="button-primary bg-purple-500">Add Contact</button>
-      <div class="mt-4">
-        <h3 class="text-lg font-medium">Your Contacts:</h3>
-        <ul id="contactsList" class="list-disc pl-5 text-sm">
-          <!-- Contacts will be loaded here -->
-        </ul>
-      </div>
-    </div>
-
-    <!-- Message Sending -->
-    <div class="bg-white p-4 rounded shadow">
-      <h2 class="text-xl font-semibold mb-3">Send Message</h2>
-      <select id="recipientContact" class="input-field">
-        <option value="">Select a Contact</option>
-        <!-- Contacts will be populated here dynamically -->
-      </select>
-      <input id="messageContent" class="input-field" placeholder="Message content"/>
-      <input id="testRendezvousIdSender" class="input-field" placeholder="Test Rendezvous ID (e.g., 'test-rdv-123')" value="test-rdv-123"/>
-      <div class="mt-2">
-        <label class="inline-flex items-center mr-4">
-          <input type="radio" name="deliverySim" value="success" checked class="form-radio h-4 w-4 text-green-600">
-          <span class="ml-2 text-gray-700">Simulate In-App Success</span>
-        </label>
-        <label class="inline-flex items-center">
-          <input type="radio" name="deliverySim" value="failure" class="form-radio h-4 w-4 text-red-600">
-          <span class="ml-2 text-gray-700">Simulate In-App Failure (for fallback)</span>
-        </label>
-      </div>
-      <button id="sendMessageBtn" class="button-primary bg-green-600 mt-4">Send Message</button>
-    </div>
-
-    <!-- Monitor Log (Sender) -->
-    <div>
-      <h2 class="text-lg font-semibold mb-2">Sender Monitor Log</h2>
-      <div id="monitorLogSender" class="log-area bg-black text-white p-4 h-64 overflow-y-scroll text-sm rounded-lg shadow-inner">Monitoring log...</div>
+    <p class="mt-4 text-sm">Current User: <span id="currentUserDisplaySender" class="font-medium">Not authenticated</span><br>User ID: <span id="currentUidDisplaySender" class="font-medium">N/A</span></p>
+    <div class="mt-4">
+      <label class="inline-flex items-center">
+        <input type="checkbox" id="isProUserSender" class="form-checkbox h-5 w-5 text-blue-600 rounded">
+        <span class="ml-2 text-gray-700">Simulate Pro User</span>
+      </label>
     </div>
   </div>
 
-  <div class="lg:w-1/2 space-y-8 mt-8 lg:mt-0">
-    <h1 class="text-3xl font-bold">MeetSafe Messaging Console (Receiver)</h1>
-
-    <!-- Auth UI (Receiver) -->
-    <div class="bg-white p-4 rounded shadow">
-      <h2 class="text-xl font-semibold mb-3">Authentication (Receiver)</h2>
-      <input id="authEmailReceiver" type="email" class="input-field" placeholder="Email" value="receiver@example.com"/>
-      <input id="authPasswordReceiver" type="password" class="input-field" placeholder="Password" value="password123"/>
-      <div class="flex space-x-2 mt-2">
-        <button id="signUpBtnReceiver" class="button-primary bg-blue-500">Sign Up</button>
-        <button id="signInBtnReceiver" class="button-primary bg-green-500">Sign In</button>
-        <button id="signOutBtnReceiver" class="button-primary bg-red-500">Sign Out</button>
-      </div>
-      <p class="mt-4 text-sm">Current User: <span id="currentUserDisplayReceiver" class="font-medium">Not authenticated</span><br>User ID: <span id="currentUidDisplayReceiver" class="font-medium">N/A</span></p>
+  <!-- Trusted Contacts Management -->
+  <div class="bg-white p-4 rounded shadow">
+    <h2 class="text-xl font-semibold mb-3">Trusted Contacts</h2>
+    <input id="contactName" class="input-field" placeholder="Contact Name"/>
+    <input id="contactEmail" type="email" class="input-field" placeholder="Contact Email (for app)"/>
+    <input id="contactPhone" type="tel" class="input-field" placeholder="Contact Phone (for SMS fallback)"/>
+    <select id="contactMethod" class="input-field">
+      <option value="app">App (Primary)</option>
+      <option value="sms">SMS (Primary)</option>
+    </select>
+    <button id="addContactBtn" class="button-primary bg-purple-500">Add Contact</button>
+    <div class="mt-4">
+      <h3 class="text-lg font-medium">Your Contacts:</h3>
+      <ul id="contactsList" class="list-disc pl-5 text-sm">
+        <!-- Contacts will be loaded here -->
+      </ul>
     </div>
+  </div>
 
-    <!-- Received Messages Log (Receiver) -->
-    <div class="bg-white p-4 rounded shadow">
-      <h2 class="text-lg font-semibold mb-2">Received Messages Log</h2>
-      <input id="testRendezvousIdReceiver" class="input-field" placeholder="Listen to Rendezvous ID (e.g., 'test-rdv-123')" value="test-rdv-123"/>
-      <button id="startListeningBtn" class="button-primary bg-blue-600 mt-2">Start Listening for Messages</button>
-      <div id="receivedMessagesLog" class="log-area bg-blue-900 text-white p-4 h-64 overflow-y-scroll text-sm rounded-lg shadow-inner mt-4">Waiting for messages...</div>
+  <!-- Message Sending -->
+  <div class="bg-white p-4 rounded shadow">
+    <h2 class="text-xl font-semibold mb-3">Send Message</h2>
+    <select id="recipientContact" class="input-field">
+      <option value="">Select a Contact</option>
+      <!-- Contacts will be populated here dynamically -->
+    </select>
+    <input id="messageContent" class="input-field" placeholder="Message content"/>
+    <input id="testRendezvousIdSender" class="input-field" placeholder="Test Rendezvous ID (e.g., 'test-rdv-123')" value="test-rdv-123"/>
+    <div class="mt-2">
+      <label class="inline-flex items-center mr-4">
+        <input type="radio" name="deliverySim" value="success" checked class="form-radio h-4 w-4 text-green-600">
+        <span class="ml-2 text-gray-700">Simulate In-App Success</span>
+      </label>
+      <label class="inline-flex items-center">
+        <input type="radio" name="deliverySim" value="failure" class="form-radio h-4 w-4 text-red-600">
+        <span class="ml-2 text-gray-700">Simulate In-App Failure (for fallback)</span>
+      </label>
     </div>
+    <button id="sendMessageBtn" class="button-primary bg-green-600 mt-4">Send Message</button>
+  </div>
 
-    <!-- Twilio SMS Log (Conceptual) -->
-    <div>
-      <h2 class="text-lg font-semibold mb-2">Twilio SMS Outbound Log (Conceptual)</h2>
-      <div id="twilioSmsLog" class="log-area bg-purple-900 text-white p-4 h-64 overflow-y-scroll text-sm rounded-lg shadow-inner">Simulated Twilio activity...</div>
-    </div>
+  <!-- Monitor Log (Sender) -->
+  <div>
+    <h2 class="text-lg font-semibold mb-2">Sender Monitor Log</h2>
+    <div id="monitorLogSender" class="log-area bg-black text-white p-4 h-64 overflow-y-scroll text-sm rounded-lg shadow-inner">Monitoring log...</div>
+  </div>
+
+  <!-- Twilio SMS Log (Conceptual) -->
+  <div>
+    <h2 class="text-lg font-semibold mb-2">Twilio SMS Outbound Log (Conceptual)</h2>
+    <div id="twilioSmsLog" class="log-area bg-purple-900 text-white p-4 h-64 overflow-y-scroll text-sm rounded-lg shadow-inner">Simulated Twilio activity...</div>
   </div>
 
   <!-- Upgrade Prompt Modal -->
@@ -157,8 +130,6 @@
     };
     const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : defaultFirebaseConfig;
 
-    // Initialize Firebase apps for sender and receiver (if needed, or reuse one)
-    // For simplicity in this console, we'll use one app instance and manage two auth states.
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
@@ -168,27 +139,24 @@
     let isProUserSender = false;
     let userContactsSender = [];
 
-    let currentUserReceiver = null;
-    let currentUserIdReceiver = null;
-    let unsubscribeMessages = null; // To store the unsubscribe function for messages listener
-
     // Map to track message counts for free users per contact (identifier -> count)
     const freeUserMessageCounts = new Map();
 
     // --- Log Functions ---
     const logToMonitor = (msg, type = "info", targetLogId = "monitorLogSender") => {
       const el = document.getElementById(targetLogId);
-      const time = new Date().toLocaleTimeString("en-AU", { timeZone: "Australia/Brisbane" });
-      const line = document.createElement("div");
-      let colorClass = "text-gray-300"; // Default
-      if (type === "success") colorClass = "text-green-400";
-      else if (type === "error") colorClass = "text-red-400";
-      else if (type === "warning") colorClass = "text-yellow-400";
-      else if (type === "received") colorClass = "text-blue-300";
+      if (el) { // Add null check for the element
+        const time = new Date().toLocaleTimeString("en-AU", { timeZone: "Australia/Brisbane" });
+        const line = document.createElement("div");
+        let colorClass = "text-gray-300"; // Default
+        if (type === "success") colorClass = "text-green-400";
+        else if (type === "error") colorClass = "text-red-400";
+        else if (type === "warning") colorClass = "text-yellow-400";
 
-      line.innerHTML = `<span class="${colorClass}">[${time}] ${msg}</span>`;
-      el.appendChild(line);
-      el.scrollTop = el.scrollHeight;
+        line.innerHTML = `<span class="${colorClass}">[${time}] ${msg}</span>`;
+        el.appendChild(line);
+        el.scrollTop = el.scrollHeight;
+      }
     };
 
     // --- Authentication Logic (Sender) ---
@@ -207,9 +175,15 @@
     };
     initialAuthSender();
 
-    document.getElementById("signUpBtnSender").addEventListener("click", async () => {
-      const email = document.getElementById("authEmailSender").value;
-      const pw = document.getElementById("authPasswordSender").value;
+    document.getElementById("signUpBtnSender")?.addEventListener("click", async () => {
+      const emailInput = document.getElementById("authEmailSender");
+      const pwInput = document.getElementById("authPasswordSender");
+      const email = emailInput?.value || '';
+      const pw = pwInput?.value || '';
+      if (!email || !pw) {
+        logToMonitor("Sender: Email and password cannot be empty for sign up.", "warning", "monitorLogSender");
+        return;
+      }
       try {
         await createUserWithEmailAndPassword(auth, email, pw);
         logToMonitor("Sender: User signed up successfully!", "success", "monitorLogSender");
@@ -218,9 +192,15 @@
       }
     });
 
-    document.getElementById("signInBtnSender").addEventListener("click", async () => {
-      const email = document.getElementById("authEmailSender").value;
-      const pw = document.getElementById("authPasswordSender").value;
+    document.getElementById("signInBtnSender")?.addEventListener("click", async () => {
+      const emailInput = document.getElementById("authEmailSender");
+      const pwInput = document.getElementById("authPasswordSender");
+      const email = emailInput?.value || '';
+      const pw = pwInput?.value || '';
+      if (!email || !pw) {
+        logToMonitor("Sender: Email and password cannot be empty for sign in.", "warning", "monitorLogSender");
+        return;
+      }
       try {
         await signInWithEmailAndPassword(auth, email, pw);
         logToMonitor("Sender: User signed in successfully!", "success", "monitorLogSender");
@@ -229,7 +209,7 @@
       }
     });
 
-    document.getElementById("signOutBtnSender").addEventListener("click", async () => {
+    document.getElementById("signOutBtnSender")?.addEventListener("click", async () => {
       try {
         await signOut(auth); // Sign out the current user
         logToMonitor("Sender: User signed out.", "info", "monitorLogSender");
@@ -245,14 +225,17 @@
     });
 
     onAuthStateChanged(auth, (user) => {
-      // This listener will fire for any auth state change, so we need to differentiate sender/receiver
-      // For simplicity in this single-page console, we'll assume the last signed-in user is the 'sender'
-      // unless explicitly handling two separate auth instances.
-      // A more robust solution would use two Firebase app instances for true separation.
       currentUserSender = user || null;
       currentUserIdSender = user?.uid || null;
-      document.getElementById("currentUserDisplaySender").textContent = user?.email || "Not authenticated";
-      document.getElementById("currentUidDisplaySender").textContent = currentUserIdSender || "N/A";
+      const currentUserDisplayEl = document.getElementById("currentUserDisplaySender");
+      const currentUidDisplayEl = document.getElementById("currentUidDisplaySender");
+
+      if (currentUserDisplayEl) {
+        currentUserDisplayEl.textContent = user?.email || "Not authenticated";
+      }
+      if (currentUidDisplayEl) {
+        currentUidDisplayEl.textContent = currentUserIdSender || "N/A";
+      }
 
       if (currentUserSender) {
         logToMonitor(`Sender: Authenticated as: ${currentUserSender.email || 'Anonymous'} (UID: ${currentUserSender.uid})`, "info", "monitorLogSender");
@@ -272,152 +255,26 @@
       }
     });
 
-    document.getElementById("isProUserSender").addEventListener("change", (e) => {
+    document.getElementById("isProUserSender")?.addEventListener("change", (e) => {
       isProUserSender = e.target.checked;
       logToMonitor(`Sender: Simulating Pro User: ${isProUserSender}`, "info", "monitorLogSender");
     });
 
-    // --- Authentication Logic (Receiver) ---
-    // Note: For a true two-user simulation on one page, you would ideally initialize a second Firebase app instance.
-    // For this console, we'll re-use the same 'auth' instance but manage a separate 'currentUserReceiver' state.
-    // This means signing in as receiver will sign out the sender, and vice-versa.
-    // For testing purposes, you can manually sign in one, then the other, and observe logs.
-    document.getElementById("signUpBtnReceiver").addEventListener("click", async () => {
-      const email = document.getElementById("authEmailReceiver").value;
-      const pw = document.getElementById("authPasswordReceiver").value;
-      try {
-        await createUserWithEmailAndPassword(auth, email, pw);
-        logToMonitor("Receiver: User signed up successfully!", "success", "receivedMessagesLog");
-      } catch (error) {
-        logToMonitor(`Receiver: Sign up error: ${error.message}`, "error", "receivedMessagesLog");
-      }
-    });
-
-    document.getElementById("signInBtnReceiver").addEventListener("click", async () => {
-      const email = document.getElementById("authEmailReceiver").value;
-      const pw = document.getElementById("authPasswordReceiver").value;
-      try {
-        await signInWithEmailAndPassword(auth, email, pw);
-        logToMonitor("Receiver: User signed in successfully!", "success", "receivedMessagesLog");
-      } catch (error) {
-        logToMonitor(`Receiver: Sign in error: ${error.message}`, "error", "receivedMessagesLog");
-      }
-    });
-
-    document.getElementById("signOutBtnReceiver").addEventListener("click", async () => {
-      try {
-        await signOut(auth);
-        logToMonitor("Receiver: User signed out.", "info", "receivedMessagesLog");
-        currentUserReceiver = null;
-        currentUserIdReceiver = null;
-        document.getElementById("receivedMessagesLog").innerHTML = "Waiting for messages...";
-        if (unsubscribeMessages) {
-          unsubscribeMessages(); // Unsubscribe from messages when signing out
-          unsubscribeMessages = null;
-        }
-      } catch (error) {
-        logToMonitor(`Receiver: Sign out error: ${error.message}`, "error", "receivedMessagesLog");
-      }
-    });
-
-    // This onAuthStateChanged listener will update both sender and receiver UIs
-    // depending on which user is currently authenticated.
-    onAuthStateChanged(auth, (user) => {
-      // Update sender side
-      currentUserSender = user || null;
-      currentUserIdSender = user?.uid || null;
-      document.getElementById("currentUserDisplaySender").textContent = user?.email || "Not authenticated";
-      document.getElementById("currentUidDisplaySender").textContent = currentUserIdSender || "N/A";
-
-      // Update receiver side
-      currentUserReceiver = user || null;
-      currentUserIdReceiver = user?.uid || null;
-      document.getElementById("currentUserDisplayReceiver").textContent = user?.email || "Not authenticated";
-      document.getElementById("currentUidDisplayReceiver").textContent = currentUserIdReceiver || "N/A";
-
-      if (currentUserSender) { // If any user is signed in, update sender contacts
-        logToMonitor(`Sender: Authenticated as: ${currentUserSender.email || 'Anonymous'} (UID: ${currentUserSender.uid})`, "info", "monitorLogSender");
-        if (currentUserIdSender) {
-          const contactsQuery = query(collection(db, `artifacts/${appId}/users/${currentUserIdSender}/contacts`));
-          onSnapshot(contactsQuery, (snapshot) => {
-            userContactsSender = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            renderContacts();
-            populateRecipientDropdown();
-            logToMonitor("Sender: Contacts updated.", "info", "monitorLogSender");
-          }, (error) => {
-            logToMonitor(`Sender: Error fetching contacts: ${error.message}`, "error", "monitorLogSender");
-          });
-        }
-      } else {
-        logToMonitor("Sender: Not authenticated.", "info", "monitorLogSender");
-      }
-
-      // Receiver message listening is now explicitly triggered by a button click
-      // to allow specifying the rendezvous ID.
-      if (currentUserReceiver) {
-        logToMonitor(`Receiver: Authenticated as: ${currentUserReceiver.email || 'Anonymous'} (UID: ${currentUserReceiver.uid})`, "info", "receivedMessagesLog");
-      } else {
-        logToMonitor("Receiver: Not authenticated.", "info", "receivedMessagesLog");
-        document.getElementById("receivedMessagesLog").innerHTML = "Waiting for messages...";
-      }
-    });
-
-    // --- Start Listening Button for Receiver ---
-    document.getElementById("startListeningBtn").addEventListener("click", () => {
-      if (!currentUserReceiver || !currentUserIdReceiver) {
-        logToMonitor("Receiver: Please sign in to start listening for messages.", "warning", "receivedMessagesLog");
-        return;
-      }
-      const rendezvousIdToListen = document.getElementById("testRendezvousIdReceiver").value.trim();
-      if (!rendezvousIdToListen) {
-        logToMonitor("Receiver: Please enter a Rendezvous ID to listen for messages.", "warning", "receivedMessagesLog");
-        return;
-      }
-
-      // Unsubscribe from previous listener if any
-      if (unsubscribeMessages) {
-        unsubscribeMessages();
-        logToMonitor("Receiver: Stopped listening to previous rendezvous.", "info", "receivedMessagesLog");
-      }
-      document.getElementById("receivedMessagesLog").innerHTML = "Waiting for messages..."; // Clear previous messages
-
-      // Listen for messages where 'to' field matches the receiver's UID/email
-      // and within the specified rendezvous ID.
-      // Note: Firestore does not support querying across subcollections without collection group queries
-      // and specific indexes. For this console, we assume messages are sent with 'to' as email/phone.
-      // The 'where' clause on 'to' will filter messages within the specified rendezvous's 'messages' subcollection.
-      const messagesCollectionRef = collection(db, `artifacts/${appId}/messages/${rendezvousIdToListen}/messages`);
-      const messagesQuery = query(messagesCollectionRef, where("recipientEmail", "==", currentUserReceiver.email));
-      // Alternatively, if you want to match by UID, you'd need the sender to store the recipient's UID.
-      // For now, we'll match by recipientEmail as that's what's stored in 'to' for app messages.
-
-      unsubscribeMessages = onSnapshot(messagesQuery, (snapshot) => {
-        snapshot.docChanges().forEach(change => {
-          const messageData = change.doc.data();
-          if (change.type === "added") {
-            logToMonitor(`New message from ${messageData.from}: "${messageData.content}" (Method: ${messageData.method})`, "received", "receivedMessagesLog");
-            // Optionally, update message status to acknowledged/read
-          } else if (change.type === "modified") {
-            logToMonitor(`Message updated (ID: ${change.doc.id}): ${JSON.stringify(messageData)}`, "info", "receivedMessagesLog");
-          }
-        });
-      }, (error) => {
-        logToMonitor(`Receiver: Error fetching messages: ${error.message}`, "error", "receivedMessagesLog");
-      });
-      logToMonitor(`Receiver: Started listening for messages in Rendezvous ID: ${rendezvousIdToListen}`, "info", "receivedMessagesLog");
-    });
-
-
     // --- Contact Management Logic ---
-    document.getElementById("addContactBtn").addEventListener("click", async () => {
+    document.getElementById("addContactBtn")?.addEventListener("click", async () => {
       if (!currentUserSender || !currentUserIdSender) {
         logToMonitor("Sender: Please sign in to add contacts.", "warning", "monitorLogSender");
         return;
       }
-      const name = document.getElementById("contactName").value.trim();
-      const email = document.getElementById("contactEmail").value.trim();
-      const phone = document.getElementById("contactPhone").value.trim();
-      const method = document.getElementById("contactMethod").value; // Primary method
+      const contactNameInput = document.getElementById("contactName");
+      const contactEmailInput = document.getElementById("contactEmail");
+      const contactPhoneInput = document.getElementById("contactPhone");
+      const contactMethodSelect = document.getElementById("contactMethod");
+
+      const name = contactNameInput?.value.trim() || '';
+      const email = contactEmailInput?.value.trim() || '';
+      const phone = contactPhoneInput?.value.trim() || '';
+      const method = contactMethodSelect?.value || '';
 
       if (!name || (!email && !phone)) { // Name is required, and at least one identifier
         logToMonitor("Sender: Contact name and at least one identifier (email or phone) cannot be empty.", "warning", "monitorLogSender");
@@ -434,9 +291,9 @@
           userId: currentUserIdSender
         });
         logToMonitor(`Sender: Contact '${name}' added successfully.`, "success", "monitorLogSender");
-        document.getElementById("contactName").value = "";
-        document.getElementById("contactEmail").value = "";
-        document.getElementById("contactPhone").value = "";
+        if (contactNameInput) contactNameInput.value = "";
+        if (contactEmailInput) contactEmailInput.value = "";
+        if (contactPhoneInput) contactPhoneInput.value = "";
       } catch (error) {
         logToMonitor(`Sender: Error adding contact: ${error.message}`, "error", "monitorLogSender");
       }
@@ -444,6 +301,7 @@
 
     const renderContacts = () => {
       const listEl = document.getElementById("contactsList");
+      if (!listEl) return; // Null check for contactsList
       listEl.innerHTML = "";
       if (userContactsSender.length === 0) {
         listEl.innerHTML = "<li>No contacts added yet.</li>";
@@ -461,6 +319,7 @@
 
     const populateRecipientDropdown = () => {
       const selectEl = document.getElementById("recipientContact");
+      if (!selectEl) return; // Null check for recipientContact
       selectEl.innerHTML = '<option value="">Select a Contact</option>';
       userContactsSender.forEach(contact => {
         const option = document.createElement("option");
@@ -474,16 +333,21 @@
     };
 
     // --- Messaging Logic ---
-    document.getElementById("sendMessageBtn").addEventListener("click", async () => {
+    document.getElementById("sendMessageBtn")?.addEventListener("click", async () => {
       if (!currentUserSender || !currentUserIdSender) {
         logToMonitor("Sender: Please sign in to send messages.", "warning", "monitorLogSender");
         return;
       }
 
-      const selectedContactId = document.getElementById("recipientContact").value;
-      const messageContent = document.getElementById("messageContent").value.trim(); // Corrected ID
-      const testRendezvousId = document.getElementById("testRendezvousIdSender").value.trim(); // Use sender's rendezvous ID
-      const simulateInAppSuccess = document.querySelector('input[name="deliverySim"]:checked').value === "success";
+      const recipientContactSelect = document.getElementById("recipientContact");
+      const messageContentInput = document.getElementById("messageContent");
+      const testRendezvousIdInput = document.getElementById("testRendezvousIdSender");
+      const deliverySimRadio = document.querySelector('input[name="deliverySim"]:checked');
+
+      const selectedContactId = recipientContactSelect?.value || '';
+      const messageContent = messageContentInput?.value.trim() || '';
+      const testRendezvousId = testRendezvousIdInput?.value.trim() || '';
+      const simulateInAppSuccess = deliverySimRadio?.value === "success";
 
       if (!selectedContactId || !messageContent || !testRendezvousId) {
         logToMonitor("Sender: Please select a contact, enter message content, and a test rendezvous ID.", "warning", "monitorLogSender");
@@ -497,8 +361,6 @@
       }
 
       // Determine the 'to' identifier based on the primary method
-      // For app messages, 'to' should be the recipient's email (for now, as UID resolution is not in console)
-      // For SMS, it's the phone number.
       let toIdentifier = null;
       if (recipientContact.method === "app") {
           toIdentifier = recipientContact.email;
@@ -515,7 +377,7 @@
       if (!isProUserSender && recipientContact.method === "app") {
         const currentCount = freeUserMessageCounts.get(toIdentifier) || 0;
         if (currentCount >= 1) {
-          document.getElementById("upgradeModal").classList.remove("hidden");
+          document.getElementById("upgradeModal")?.classList.remove("hidden");
           logToMonitor("Sender: Free user limit reached for app-to-app message.", "warning", "monitorLogSender");
           return;
         }
