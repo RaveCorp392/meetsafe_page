@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MeetSafe Messaging Console (Receiver)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f3f4f6;
+    }
+    .log-area::-webkit-scrollbar {
+      width: 8px;
+    }
+    .log-area::-webkit-scrollbar-thumb {
+      background: #a0aec0;
+      border-radius: 10px;
+    }
+    .button-primary {
+      @apply bg-blue-500 text-white px-4 py-2 rounded shadow hover:bg-blue-600 transition-colors;
+    }
+    .input-field {
+      @apply block w-full my-2 p-2 border rounded focus:ring-blue-500 focus:border-blue-500;
+    }
+  </style>
+</head>
+<body class="p-6 space-y-8">
+  <h1 class="text-3xl font-bold">MeetSafe Messaging Console (Receiver)</h1>
+
+  <!-- Auth UI (Receiver) -->
+  <div class="bg-white p-4 rounded shadow">
+    <h2 class="text-xl font-semibold mb-3">Authentication (Receiver)</h2>
+    <input id="authEmailReceiver" type="email" class="input-field" placeholder="Email" value="receiver@example.com"/>
+    <input id="authPasswordReceiver" type="password" class="input-field" placeholder="Password" value="password123"/>
+    <div class="flex space-x-2 mt-2">
+      <button id="signUpBtnReceiver" class="button-primary bg-blue-500">Sign Up</button>
+      <button id="signInBtnReceiver" class="button-primary bg-green-500">Sign In</button>
+      <button id="signOutBtnReceiver" class="button-primary bg-red-500">Sign Out</button>
+    </div>
+    <p class="mt-4 text-sm">Current User: <span id="currentUserDisplayReceiver" class="font-medium">Not authenticated</span><br>User ID: <span id="currentUidDisplayReceiver" class="font-medium">N/A</span></p>
+  </div>
+
+  <!-- Received Messages Log (Receiver) -->
+  <div class="bg-white p-4 rounded shadow">
+    <h2 class="text-lg font-semibold mb-2">Received Messages Log</h2>
+    <input id="testRendezvousIdReceiver" class="input-field" placeholder="Listen to Rendezvous ID (e.g., 'test-rdv-123')" value="test-rdv-123"/>
+    <button id="startListeningBtn" class="button-primary bg-blue-600 mt-2">Start Listening for Messages</button>
+    <div id="receivedMessagesLog" class="log-area bg-blue-900 text-white p-4 h-64 overflow-y-scroll text-sm rounded-lg shadow-inner mt-4">Waiting for messages...</div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getFirestore, collection, query, where, onSnapshot, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // Firebase configuration provided by the Canvas environment
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const defaultFirebaseConfig = {
+      apiKey: "AIzaSyAV52Ads-ckhKuGsKvHoYYTrDIqBHMHusQ",
+      authDomain: "meetsafe-clean-core.firebaseapp.com",
+      projectId: "meetsafe-clean-core",
+      storageBucket: "meetsafe-clean-core.firebasestorage.app",
+      messagingSenderId: "970833854934",
+      appId: "1:970833854934:web:5ae847503baa2c6c552477",
+      measurementId: "G-E6LBFE2SEB"
+    };
+    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : defaultFirebaseConfig;
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    let currentUserReceiver = null;
+    let currentUserIdReceiver = null;
+    let unsubscribeMessages = null; // To store the unsubscribe function for messages listener
+
+    // --- Log Function ---
+    const logToMonitor = (msg, type = "info", targetLogId = "receivedMessagesLog") => {
+      const el = document.getElementById(targetLogId);
+      if (el) { // Add null check for the element
+        const time = new Date().toLocaleTimeString("en-AU", { timeZone: "Australia/Brisbane" });
+        const line = document.createElement("div");
+        let colorClass = "text-gray-300"; // Default
+        if (type === "success") colorClass = "text-green-400";
+        else if (type === "error") colorClass = "text-red-400";
+        else if (type === "warning") colorClass = "text-yellow-400";
+        else if (type === "received") colorClass = "text-blue-300";
+
+        line.innerHTML = `<span class="${colorClass}">[${time}] ${msg}</span>`;
+        el.appendChild(line);
+        el.scrollTop = el.scrollHeight;
+      }
+    };
+
+    // --- Authentication Logic (Receiver) ---
+    const initialAuthReceiver = async () => {
+      try {
+        if (typeof __initial_auth_token !== 'undefined') {
+          await signInWithCustomToken(auth, __initial_auth_token);
+          logToMonitor("Receiver: Signed in with custom token.", "success", "receivedMessagesLog");
+        } else {
+          await signInAnonymously(auth);
+          logToMonitor("Receiver: Signed in anonymously.", "info", "receivedMessagesLog");
+        }
+      } catch (error) {
+        logToMonitor(`Receiver: Initial authentication error: ${error.message}`, "error", "receivedMessagesLog");
+      }
+    };
+    initialAuthReceiver();
+
+    document.getElementById("signUpBtnReceiver")?.addEventListener("click", async () => {
+      const email = document.getElementById("authEmailReceiver")?.value || '';
+      const pw = document.getElementById("authPasswordReceiver")?.value || '';
+      if (!email || !pw) {
+        logToMonitor("Receiver: Email and password cannot be empty for sign up.", "warning", "receivedMessagesLog");
+        return;
+      }
+      try {
+        await createUserWithEmailAndPassword(auth, email, pw);
+        logToMonitor("Receiver: User signed up successfully!", "success", "receivedMessagesLog");
+      } catch (error) {
+        logToMonitor(`Receiver: Sign up error: ${error.message}`, "error", "receivedMessagesLog");
+      }
+    });
+
+    document.getElementById("signInBtnReceiver")?.addEventListener("click", async () => {
+      const email = document.getElementById("authEmailReceiver")?.value || '';
+      const pw = document.getElementById("authPasswordReceiver")?.value || '';
+      if (!email || !pw) {
+        logToMonitor("Receiver: Email and password cannot be empty for sign in.", "warning", "receivedMessagesLog");
+        return;
+      }
+      try {
+        await signInWithEmailAndPassword(auth, email, pw);
+        logToMonitor("Receiver: User signed in successfully!", "success", "receivedMessagesLog");
+      } catch (error) {
+        logToMonitor(`Receiver: Sign in error: ${error.message}`, "error", "receivedMessagesLog");
+      }
+    });
+
+    document.getElementById("signOutBtnReceiver")?.addEventListener("click", async () => {
+      try {
+        await signOut(auth);
+        logToMonitor("Receiver: User signed out.", "info", "receivedMessagesLog");
+        currentUserReceiver = null;
+        currentUserIdReceiver = null;
+        const receivedMessagesLogEl = document.getElementById("receivedMessagesLog");
+        if (receivedMessagesLogEl) {
+          receivedMessagesLogEl.innerHTML = "Waiting for messages...";
+        }
+        if (unsubscribeMessages) {
+          unsubscribeMessages(); // Unsubscribe from messages when signing out
+          unsubscribeMessages = null;
+        }
+      } catch (error) {
+        logToMonitor(`Receiver: Sign out error: ${error.message}`, "error", "receivedMessagesLog");
+      }
+    });
+
+    onAuthStateChanged(auth, (user) => {
+      currentUserReceiver = user || null;
+      currentUserIdReceiver = user?.uid || null;
+      const currentUserDisplayEl = document.getElementById("currentUserDisplayReceiver");
+      const currentUidDisplayEl = document.getElementById("currentUidDisplayReceiver");
+
+      if (currentUserDisplayEl) {
+        currentUserDisplayEl.textContent = user?.email || "Not authenticated";
+      }
+      if (currentUidDisplayEl) {
+        currentUidDisplayEl.textContent = currentUserIdReceiver || "N/A";
+      }
+
+      if (currentUserReceiver) {
+        logToMonitor(`Receiver: Authenticated as: ${currentUserReceiver.email || 'Anonymous'} (UID: ${currentUserReceiver.uid})`, "info", "receivedMessagesLog");
+      } else {
+        logToMonitor("Receiver: Not authenticated.", "info", "receivedMessagesLog");
+        const receivedMessagesLogEl = document.getElementById("receivedMessagesLog");
+        if (receivedMessagesLogEl) {
+          receivedMessagesLogEl.innerHTML = "Waiting for messages...";
+        }
+      }
+    });
+
+    // --- Start Listening Button for Receiver ---
+    document.getElementById("startListeningBtn")?.addEventListener("click", () => {
+      if (!currentUserReceiver || !currentUserIdReceiver) {
+        logToMonitor("Receiver: Please sign in to start listening for messages.", "warning", "receivedMessagesLog");
+        return;
+      }
+      const rendezvousIdToListen = document.getElementById("testRendezvousIdReceiver")?.value.trim() || '';
+      if (!rendezvousIdToListen) {
+        logToMonitor("Receiver: Please enter a Rendezvous ID to listen for messages.", "warning", "receivedMessagesLog");
+        return;
+      }
+
+      // Unsubscribe from previous listener if any
+      if (unsubscribeMessages) {
+        unsubscribeMessages();
+        logToMonitor("Receiver: Stopped listening to previous rendezvous.", "info", "receivedMessagesLog");
+      }
+      const receivedMessagesLogEl = document.getElementById("receivedMessagesLog");
+      if (receivedMessagesLogEl) {
+        receivedMessagesLogEl.innerHTML = "Waiting for messages..."; // Clear previous messages
+      }
+
+      // Listen for messages where 'recipientEmail' matches the receiver's email
+      const messagesCollectionRef = collection(db, `artifacts/${appId}/messages/${rendezvousIdToListen}/messages`);
+      const messagesQuery = query(messagesCollectionRef, where("recipientEmail", "==", currentUserReceiver.email));
+
+      unsubscribeMessages = onSnapshot(messagesQuery, (snapshot) => {
+        snapshot.docChanges().forEach(change => {
+          const messageData = change.doc.data();
+          if (change.type === "added") {
+            logToMonitor(`New message from ${messageData.from}: "${messageData.content}" (Method: ${messageData.method})`, "received", "receivedMessagesLog");
+          } else if (change.type === "modified") {
+            logToMonitor(`Message updated (ID: ${change.doc.id}): ${JSON.stringify(messageData)}`, "info", "receivedMessagesLog");
+          }
+        });
+      }, (error) => {
+        logToMonitor(`Receiver: Error fetching messages: ${error.message}`, "error", "receivedMessagesLog");
+      });
+      logToMonitor(`Receiver: Started listening for messages in Rendezvous ID: ${rendezvousIdToListen}`, "info", "receivedMessagesLog");
+    });
+  </script>
+</body>
+</html>
