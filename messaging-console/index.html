@@ -140,6 +140,7 @@
     let userContactsSender = [];
 
     // Map to track message counts for free users per contact (identifier -> count)
+    // This map will no longer be used for app-to-app limits, but kept for potential future use or other limits.
     const freeUserMessageCounts = new Map();
 
     // --- Log Functions ---
@@ -373,15 +374,9 @@
           return;
       }
 
-      // Free user message limit check (only for app messages)
-      if (!isProUserSender && recipientContact.method === "app") {
-        const currentCount = freeUserMessageCounts.get(toIdentifier) || 0;
-        if (currentCount >= 1) {
-          document.getElementById("upgradeModal")?.classList.remove("hidden");
-          logToMonitor("Sender: Free user limit reached for app-to-app message.", "warning", "monitorLogSender");
-          return;
-        }
-      }
+      // Removed: Free user message limit check (only for app messages)
+      // As per your request, app-to-app messages will have no limits here.
+      // Limits would apply at the Rendezvous creation side.
 
       try {
         // Create a new subcollection for messages under the rendezvous ID
@@ -412,11 +407,9 @@
           }
         }
 
-        // Increment message count for free users (only for app messages)
-        if (!isProUserSender && recipientContact.method === "app") {
-            freeUserMessageCounts.set(toIdentifier, (freeUserMessageCounts.get(toIdentifier) || 0) + 1);
-            logToMonitor(`Sender: Free user app message count for ${recipientContact.name}: ${freeUserMessageCounts.get(toIdentifier)}`, "info", "monitorLogSender");
-        }
+        // Removed: Increment message count for free users (only for app messages)
+        // freeUserMessageCounts.set(toIdentifier, (freeUserMessageCounts.get(toIdentifier) || 0) + 1);
+        // logToMonitor(`Sender: Free user app message count for ${recipientContact.name}: ${freeUserMessageCounts.get(toIdentifier)}`, "info", "monitorLogSender");
 
       } catch (error) {
         logToMonitor(`Sender: Error sending message: ${error.message}`, "error", "monitorLogSender");
