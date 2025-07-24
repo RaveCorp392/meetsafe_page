@@ -115,7 +115,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getFirestore, collection, addDoc, updateDoc, doc, query, where, onSnapshot, Timestamp, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, updateDoc, doc, query, where, getDocs, onSnapshot, Timestamp, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     // Firebase configuration provided by the Canvas environment
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -284,7 +284,14 @@
 
       // NEW LIMIT: Free users can only add contacts with 'app' method
       if (!isProUserSender && method === "sms") {
-        document.getElementById("upgradeModal")?.classList.remove("hidden");
+        const upgradeModalEl = document.getElementById("upgradeModal");
+        if (upgradeModalEl) {
+          upgradeModalEl.classList.remove("hidden");
+          const upgradeModalP = upgradeModalEl.querySelector('p');
+          if (upgradeModalP) {
+            upgradeModalP.textContent = "Free users can only add contacts with 'App' method (no SMS contacts). Please upgrade to Pro for SMS contact support.";
+          }
+        }
         logToMonitor("Sender: Free users can only add contacts with 'App' method (no SMS contacts).", "warning", "monitorLogSender");
         return;
       }
@@ -381,9 +388,52 @@
           return;
       }
 
-      // Removed: Free user message limit check (only for app messages)
-      // As per your request, app-to-app messages will have no limits here.
-      // Limits would apply at the Rendezvous creation side.
+      // NEW CONSTRAINT: Free user can only send to one unique app contact per Rendezvous
+      // AND for free users, SMS fallback is allowed only for this one app contact if in-app fails.
+      if (!isProUserSender) {
+          // If the primary method of the selected contact is SMS, block sending
+          if (recipientContact.method === "sms") {
+              const upgradeModalEl = document.getElementById("upgradeModal");
+              if (upgradeModalEl) {
+                  upgradeModalEl.classList.remove("hidden");
+                  const upgradeModalP = upgradeModalEl.querySelector('p');
+                  if (upgradeModalP) {
+                      upgradeModalP.textContent = "Free users can only send messages to contacts who have the app (no SMS messages). Please upgrade to Pro for SMS messaging.";
+                  }
+              }
+              logToMonitor("Sender: Free users can only send messages to app contacts.", "warning", "monitorLogSender");
+              return;
+          }
+
+          // Query for any existing app messages sent by this user within this rendezvous
+          const messagesSentByThisUserInRendezvousQuery = query(
+              collection(db, `artifacts/${appId}/messages/${testRendezvousId}/messages`),
+              where("from", "==", currentUserIdSender),
+              where("method", "==", "app")
+          );
+
+          const existingMessagesSnap = await getDocs(messagesSentByThisUserInRendezvousQuery);
+          let existingRecipientEmail = null;
+
+          if (!existingMessagesSnap.empty) {
+              // Get the recipient email from the first existing app message by this sender in this rendezvous
+              existingRecipientEmail = existingMessagesSnap.docs[0].data().recipientEmail;
+
+              // If a message already exists for this rendezvous with a different app recipient
+              if (existingRecipientEmail && existingRecipientEmail !== recipientContact.email) {
+                  const upgradeModalEl = document.getElementById("upgradeModal");
+                  if (upgradeModalEl) {
+                      upgradeModalEl.classList.remove("hidden");
+                      const upgradeModalP = upgradeModalEl.querySelector('p');
+                      if (upgradeModalP) {
+                          upgradeModalP.textContent = `Free users can only send messages to one unique app contact per rendezvous. This rendezvous is already associated with ${existingRecipientEmail}.`;
+                      }
+                  }
+                  logToMonitor(`Sender: Free user limit: This rendezvous is already associated with ${existingRecipientEmail}.`, "warning", "monitorLogSender");
+                  return;
+              }
+          }
+      }
 
       try {
         // Create a new subcollection for messages under the rendezvous ID
@@ -413,10 +463,6 @@
               sendTwilioSms(recipientContact.phoneNumber, messageContent, messageRef.id, "Direct SMS");
           }
         }
-
-        // Removed: Increment message count for free users (only for app messages)
-        // freeUserMessageCounts.set(toIdentifier, (freeUserMessageCounts.get(toIdentifier) || 0) + 1);
-        // logToMonitor(`Sender: Free user app message count for ${recipientContact.name}: ${freeUserMessageCounts.get(toIdentifier)}`, "info", "monitorLogSender");
 
       } catch (error) {
         logToMonitor(`Sender: Error sending message: ${error.message}`, "error", "monitorLogSender");
@@ -448,9 +494,12 @@
 
           if (!messageData.delivered && messageData.method === "app") {
             logToMonitor(`Sender: In-app message to ${recipientContact.name} not confirmed delivered within ${fallbackCheckTimeout / 1000}s. Checking fallback...`, "warning", "monitorLogSender");
-            if (isProUserSender) {
+
+            // MODIFIED: Free user now also gets SMS fallback for their one app contact
+            // The condition now checks if it's a Pro user OR if it's a Free user AND the contact has a phone number.
+            if (isProUserSender || (!isProUserSender && recipientContact.phoneNumber)) {
               if (recipientContact.phoneNumber) { // Check if phone number is available for SMS fallback
-                 logToMonitor(`Sender: SMS fallback initiated for ${recipientContact.name} (Pro User).`, "info", "monitorLogSender");
+                 logToMonitor(`Sender: SMS fallback initiated for ${recipientContact.name}.`, "info", "monitorLogSender");
                  // Trigger actual Twilio SMS
                  sendTwilioSms(recipientContact.phoneNumber, messageData.content, messageRef.id, "Fallback SMS");
                  await updateDoc(messageRef, { fallback: "sms", delivered: true }); // Mark delivered after fallback attempt
@@ -459,7 +508,8 @@
                  logToMonitor(`Sender: Cannot fallback to SMS for ${recipientContact.name}: No phone number available.`, "warning", "monitorLogSender");
               }
             } else {
-              logToMonitor(`Sender: SMS fallback not available for Free User (${recipientContact.name}).`, "warning", "monitorLogSender");
+              // This branch is now only for Free users who don't have a phone number for the contact
+              logToMonitor(`Sender: SMS fallback not available for Free User (${recipientContact.name}) without a phone number.`, "warning", "monitorLogSender");
             }
           }
         }
