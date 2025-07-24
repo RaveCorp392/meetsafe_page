@@ -2,25 +2,44 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>MeetSafe Reschedule Console (v24.7.25.1)</title>
+  <title>MeetSafe Reschedule Console v24.7.25.2</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    body { font-family: 'Inter', sans-serif; background-color: #f9fafb; }
-    .log-area::-webkit-scrollbar { width: 8px; }
-    .log-area::-webkit-scrollbar-thumb { background: #a0aec0; border-radius: 10px; }
-  </style>
 </head>
-<body class="p-6 space-y-6">
-  <h1 class="text-3xl font-bold">MeetSafe Reschedule Console <span class="text-sm text-gray-500">(v24.7.25.1)</span></h1>
+<body class="bg-gray-100 p-6">
+  <h1 class="text-2xl font-bold mb-4">MeetSafe Reschedule Console</h1>
+  <div class="text-sm text-gray-500 mb-6">Version: 24.7.25.2 (Local time displayed)</div>
 
-  <div id="rendezvousList" class="space-y-4"></div>
+  <div>
+    <input id="authEmail" placeholder="Email" class="p-2 border rounded mr-2" />
+    <input id="authPassword" type="password" placeholder="Password" class="p-2 border rounded mr-2" />
+    <button id="signInBtn" class="bg-blue-600 text-white px-3 py-1 rounded">Sign In</button>
+    <button id="signOutBtn" class="bg-red-500 text-white px-3 py-1 rounded">Sign Out</button>
+  </div>
 
-  <div id="log" class="bg-black text-white p-2 rounded log-area h-48 overflow-y-scroll text-sm">[log]</div>
+  <div class="my-4">
+    Signed in as: <span id="currentUserDisplay" class="font-medium">None</span>
+  </div>
+
+  <div id="rdvList" class="space-y-4"></div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getFirestore, doc, updateDoc, getDocs, query, collection, Timestamp, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import {
+      getAuth,
+      signInWithEmailAndPassword,
+      signOut,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import {
+      getFirestore,
+      collection,
+      query,
+      where,
+      getDocs,
+      updateDoc,
+      doc,
+      Timestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const config = {
       apiKey: "AIzaSyAV52Ads-ckhKuGsKvHoYYTrDIqBHMHusQ",
@@ -29,82 +48,107 @@
     };
 
     const app = initializeApp(config);
-    const db = getFirestore(app);
     const auth = getAuth(app);
+    const db = getFirestore(app);
+    let currentUser = null;
 
-    const log = (msg) => {
-      const el = document.createElement("div");
-      el.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-      document.getElementById("log").appendChild(el);
+    const rdvList = document.getElementById("rdvList");
+
+    const toLocalInputString = ts => {
+      const d = ts.toDate();
+      return d.toISOString().slice(0, 16);
     };
 
-    const formatDateTimeLocal = (timestamp, tzOffsetMins) => {
-      const localMillis = timestamp.seconds * 1000 + tzOffsetMins * 60000;
-      return new Date(localMillis).toISOString().slice(0, 16); // for datetime-local
-    };
+    const renderRdv = (rdvSnap) => {
+      const data = rdvSnap.data();
+      const container = document.createElement("div");
+      container.className = "bg-white rounded shadow p-4";
 
-    const renderList = async (uid) => {
-      const q = query(collection(db, `artifacts/meetsafe-clean-core/users/${uid}/rendezvous`), where("status", "==", "active"));
-      const snapshot = await getDocs(q);
-      const area = document.getElementById("rendezvousList");
-      area.innerHTML = "";
+      const header = document.createElement("div");
+      header.className = "cursor-pointer text-lg font-semibold text-blue-700";
+      header.textContent = data.contactName || "(Unnamed rendezvous)";
+      container.appendChild(header);
 
-      snapshot.docs.forEach(docSnap => {
-        const data = docSnap.data();
-        const div = document.createElement("div");
-        div.className = "bg-white p-4 shadow rounded space-y-2";
+      const form = document.createElement("div");
+      form.className = "mt-2 space-y-2 hidden";
 
-        const nameInput = document.createElement("input");
-        nameInput.className = "w-full border p-1 rounded";
-        nameInput.value = data.contactName || "";
+      const nameInput = document.createElement("input");
+      nameInput.className = "p-2 border rounded w-full";
+      nameInput.value = data.contactName;
 
-        const startInput = document.createElement("input");
-        startInput.type = "datetime-local";
-        startInput.className = "w-full border p-1 rounded";
-        const offset = data.timeZoneOffsetMins ?? -(new Date().getTimezoneOffset());
-        startInput.value = formatDateTimeLocal(data.startTime, offset);
+      const startInput = document.createElement("input");
+      startInput.type = "datetime-local";
+      startInput.className = "p-2 border rounded w-full";
+      startInput.value = toLocalInputString(data.startTime);
 
-        const typeSelect = document.createElement("select");
-        typeSelect.className = "w-full border p-1 rounded";
-        ["none", "10min"].forEach(opt => {
-          const o = document.createElement("option");
-          o.value = opt;
-          o.textContent = opt;
-          if (data.checkInType === opt) o.selected = true;
-          typeSelect.appendChild(o);
-        });
+      const endInput = document.createElement("input");
+      endInput.type = "datetime-local";
+      endInput.className = "p-2 border rounded w-full";
+      endInput.value = toLocalInputString(data.endTime);
 
-        const saveBtn = document.createElement("button");
-        saveBtn.className = "bg-blue-600 text-white px-3 py-1 rounded";
-        saveBtn.textContent = "Save";
-        saveBtn.onclick = async () => {
-          const ref = doc(db, `artifacts/meetsafe-clean-core/users/${uid}/rendezvous/${docSnap.id}`);
-          await updateDoc(ref, {
-            contactName: nameInput.value,
-            checkInType: typeSelect.value,
-            startTime: Timestamp.fromDate(new Date(startInput.value)),
-            updatedAt: Timestamp.now()
-          });
-          log(`Updated ${nameInput.value}`);
-        };
-
-        div.appendChild(nameInput);
-        div.appendChild(startInput);
-        div.appendChild(typeSelect);
-        div.appendChild(saveBtn);
-        area.appendChild(div);
+      const checkinSelect = document.createElement("select");
+      checkinSelect.className = "p-2 border rounded w-full";
+      ["none", "10min", "midpoint"].forEach(opt => {
+        const o = document.createElement("option");
+        o.value = opt;
+        o.textContent = opt;
+        if (data.checkInType === opt) o.selected = true;
+        checkinSelect.appendChild(o);
       });
+
+      const saveBtn = document.createElement("button");
+      saveBtn.textContent = "Save Changes";
+      saveBtn.className = "hidden bg-green-600 text-white px-3 py-1 rounded";
+
+      form.append(nameInput, startInput, endInput, checkinSelect, saveBtn);
+      container.appendChild(form);
+
+      header.onclick = () => {
+        form.classList.toggle("hidden");
+        saveBtn.classList.add("hidden");
+      };
+
+      [nameInput, startInput, endInput, checkinSelect].forEach(input =>
+        input.addEventListener("input", () => {
+          saveBtn.classList.remove("hidden");
+        })
+      );
+
+      saveBtn.onclick = async () => {
+        const ref = doc(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous/${rdvSnap.id}`);
+        await updateDoc(ref, {
+          contactName: nameInput.value,
+          startTime: Timestamp.fromDate(new Date(startInput.value)),
+          endTime: Timestamp.fromDate(new Date(endInput.value)),
+          checkInType: checkinSelect.value
+        });
+        saveBtn.classList.add("hidden");
+        header.textContent = nameInput.value;
+        alert("Rendezvous updated.");
+      };
+
+      rdvList.appendChild(container);
     };
 
-    onAuthStateChanged(auth, (user) => {
-      if (user) {
-        log(`Signed in as ${user.email}`);
-        renderList(user.uid);
-      } else {
-        const email = prompt("Email:");
-        const password = prompt("Password:");
-        signInWithEmailAndPassword(auth, email, password).catch(err => log("Login failed: " + err.message));
-      }
+    const loadRendezvous = async () => {
+      rdvList.innerHTML = "";
+      const q = query(collection(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous`), where("status", "==", "active"));
+      const snap = await getDocs(q);
+      snap.forEach(renderRdv);
+    };
+
+    document.getElementById("signInBtn").onclick = async () => {
+      const email = document.getElementById("authEmail").value;
+      const pw = document.getElementById("authPassword").value;
+      await signInWithEmailAndPassword(auth, email, pw);
+    };
+
+    document.getElementById("signOutBtn").onclick = () => signOut(auth);
+
+    onAuthStateChanged(auth, user => {
+      currentUser = user;
+      document.getElementById("currentUserDisplay").textContent = user?.email || "None";
+      if (user) loadRendezvous();
     });
   </script>
 </body>
