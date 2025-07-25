@@ -331,15 +331,29 @@
       }
 
       try {
-        await addDoc(collection(db, `artifacts/${appId}/users/${currentUserIdSender}/contacts`), {
+        const newContactRef = collection(db, `artifacts/${appId}/users/${currentUserIdSender}/contacts`);
+        const docRef = await addDoc(newContactRef, { // Store inviteStatus
           name,
           email: email || null, // Store email, null if empty
           phoneNumber: phone || null, // Store phone, null if empty
           method, // Primary method (app or sms)
           createdAt: Timestamp.now(),
-          userId: currentUserIdSender
+          userId: currentUserIdSender,
+          inviteStatus: "pending" // Initial invite status
         });
         logToMonitor(`Sender: Contact '${name}' added successfully.`, "success", "monitorLogSender");
+        
+        // Simulate sending invite/notification
+        if (method === "app") {
+            logToMonitor(`Sender: Simulated in-app invite sent to ${email || name}.`, "info", "monitorLogSender");
+            // In future, this would trigger a server-side call to send a real in-app notification
+        } else if (method === "sms") {
+            // For SMS contacts, even for Pro users, the primary invite is email.
+            // SMS fallback for invite would happen if email not confirmed.
+            logToMonitor(`Sender: Simulated email invite sent to ${email || name} (for SMS contact).`, "info", "monitorLogSender");
+            // In future, this would trigger a server-side call to send a real email invite
+        }
+
         resetContactForm(); // Reset form after adding
       } catch (error) {
         logToMonitor(`Sender: Error adding contact: ${error.message}`, "error", "monitorLogSender");
@@ -383,6 +397,7 @@
                 email: email || null,
                 phoneNumber: phone || null,
                 method
+                // inviteStatus is not updated on edit unless explicitly intended
             });
             logToMonitor(`Sender: Contact '${name}' updated successfully.`, "success", "monitorLogSender");
             resetContactForm(); // Reset form after updating
@@ -410,7 +425,7 @@
         if (contact.email) identifierDisplay.push(`Email: ${contact.email}`);
         if (contact.phoneNumber) identifierDisplay.push(`Phone: ${contact.phoneNumber}`);
         li.innerHTML = `
-          <span>${contact.name} (${identifierDisplay.join(', ')}) [Primary: ${contact.method}]</span>
+          <span>${contact.name} (${identifierDisplay.join(', ')}) [Primary: ${contact.method}] (Invite: ${contact.inviteStatus || 'N/A'})</span>
           <div class="contact-actions">
             <button class="edit-btn" data-contact-id="${contact.id}">Edit</button>
             <button class="delete-btn" data-contact-id="${contact.id}">Delete</button>
