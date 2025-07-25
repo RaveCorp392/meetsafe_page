@@ -65,10 +65,10 @@
     <input id="contactName" class="input-field" placeholder="Contact Name"/>
     <input id="contactEmail" type="email" class="input-field" placeholder="Contact Email (for app)"/>
     <input id="contactPhone" type="tel" class="input-field" placeholder="Contact Phone (for SMS fallback)"/>
-    <select id="contactMethod" class="input-field">
-      <option value="app">App (Primary)</option>
-      <option value="sms">SMS (Primary)</option>
-    </select>
+    <!-- Removed: <select id="contactMethod" class="input-field"> -->
+    <!--   <option value="app">App (Primary)</option> -->
+    <!--   <option value="sms">SMS (Primary)</option> -->
+    <!-- </select> -->
     <div class="flex space-x-2 mt-2">
       <button id="addContactBtn" class="button-primary bg-purple-500">Add Contact</button>
       <button id="updateContactBtn" class="button-primary bg-orange-500 hidden">Save Changes</button>
@@ -284,7 +284,7 @@
     const contactNameInput = document.getElementById("contactName");
     const contactEmailInput = document.getElementById("contactEmail");
     const contactPhoneInput = document.getElementById("contactPhone");
-    const contactMethodSelect = document.getElementById("contactMethod");
+    // Removed: const contactMethodSelect = document.getElementById("contactMethod");
     const addContactBtn = document.getElementById("addContactBtn");
     const updateContactBtn = document.getElementById("updateContactBtn");
     const cancelEditBtn = document.getElementById("cancelEditBtn");
@@ -293,7 +293,7 @@
         if (contactNameInput) contactNameInput.value = "";
         if (contactEmailInput) contactEmailInput.value = "";
         if (contactPhoneInput) contactPhoneInput.value = "";
-        if (contactMethodSelect) contactMethodSelect.value = "app"; // Default to app
+        // Removed: if (contactMethodSelect) contactMethodSelect.value = "app"; // Default to app
         addContactBtn?.classList.remove("hidden");
         updateContactBtn?.classList.add("hidden");
         cancelEditBtn?.classList.add("hidden");
@@ -309,24 +309,27 @@
       const name = contactNameInput?.value.trim() || '';
       const email = contactEmailInput?.value.trim() || '';
       const phone = contactPhoneInput?.value.trim() || '';
-      const method = contactMethodSelect?.value || '';
-
-      if (!name || (!email && !phone)) { // Name is required, and at least one identifier
-        logToMonitor("Sender: Contact name and at least one identifier (email or phone) cannot be empty.", "warning", "monitorLogSender");
-        return;
+      // Dynamically determine method based on provided identifiers
+      let method = "app"; // Default to app if email is provided
+      if (!email && phone) { // If no email but phone is provided, it's an SMS contact
+          method = "sms";
+      } else if (!email && !phone) { // If neither, it's an invalid contact
+          logToMonitor("Sender: Contact must have at least an email or a phone number.", "warning", "monitorLogSender");
+          return;
       }
 
-      // NEW LIMIT: Free users can only add contacts with 'app' method
-      if (!isProUserSender && method === "sms") {
+
+      // NEW LIMIT: Free users can only add contacts with 'app' method (i.e., must provide an email)
+      if (!isProUserSender && method === "sms") { // If free user and method determined to be SMS
         const upgradeModalEl = document.getElementById("upgradeModal");
         if (upgradeModalEl) {
           upgradeModalEl.classList.remove("hidden");
           const upgradeModalP = upgradeModalEl.querySelector('p');
           if (upgradeModalP) {
-            upgradeModalP.textContent = "Free users can only add contacts with 'App' method (no SMS contacts). Please upgrade to Pro for SMS contact support.";
+            upgradeModalP.textContent = "Free users can only add contacts for in-app communication (must provide an email). Please upgrade to Pro for SMS-only contact support.";
           }
         }
-        logToMonitor("Sender: Free users can only add contacts with 'App' method (no SMS contacts).", "warning", "monitorLogSender");
+        logToMonitor("Sender: Free users can only add contacts for in-app communication (must provide an email).", "warning", "monitorLogSender");
         return;
       }
 
@@ -336,7 +339,7 @@
           name,
           email: email || null, // Store email, null if empty
           phoneNumber: phone || null, // Store phone, null if empty
-          method, // Primary method (app or sms)
+          method, // Dynamically determined method
           createdAt: Timestamp.now(),
           userId: currentUserIdSender,
           inviteStatus: "pending" // Initial invite status
@@ -369,10 +372,12 @@
         const name = contactNameInput?.value.trim() || '';
         const email = contactEmailInput?.value.trim() || '';
         const phone = contactPhoneInput?.value.trim() || '';
-        const method = contactMethodSelect?.value || '';
-
-        if (!name || (!email && !phone)) {
-            logToMonitor("Sender: Contact name and at least one identifier (email or phone) cannot be empty.", "warning", "monitorLogSender");
+        // Dynamically determine method for update based on provided identifiers
+        let method = "app";
+        if (!email && phone) {
+            method = "sms";
+        } else if (!email && !phone) {
+            logToMonitor("Sender: Contact must have at least an email or a phone number.", "warning", "monitorLogSender");
             return;
         }
 
@@ -396,7 +401,7 @@
                 name,
                 email: email || null,
                 phoneNumber: phone || null,
-                method
+                method // Dynamically determined method for update
                 // inviteStatus is not updated on edit unless explicitly intended
             });
             logToMonitor(`Sender: Contact '${name}' updated successfully.`, "success", "monitorLogSender");
@@ -425,7 +430,7 @@
         if (contact.email) identifierDisplay.push(`Email: ${contact.email}`);
         if (contact.phoneNumber) identifierDisplay.push(`Phone: ${contact.phoneNumber}`);
         li.innerHTML = `
-          <span>${contact.name} (${identifierDisplay.join(', ')}) [Primary: ${contact.method}] (Invite: ${contact.inviteStatus || 'N/A'})</span>
+          <span>${contact.name} (${identifierDisplay.join(', ')}) [Determined: ${contact.method}] (Invite: ${contact.inviteStatus || 'N/A'})</span>
           <div class="contact-actions">
             <button class="edit-btn" data-contact-id="${contact.id}">Edit</button>
             <button class="delete-btn" data-contact-id="${contact.id}">Delete</button>
@@ -444,7 +449,8 @@
                   if (contactNameInput) contactNameInput.value = contactToEdit.name;
                   if (contactEmailInput) contactEmailInput.value = contactToEdit.email || '';
                   if (contactPhoneInput) contactPhoneInput.value = contactToEdit.phoneNumber || '';
-                  if (contactMethodSelect) contactMethodSelect.value = contactToEdit.method;
+                  // Method is now determined, not selected, so no need to set select value
+                  // if (contactMethodSelect) contactMethodSelect.value = contactToEdit.method;
 
                   addContactBtn?.classList.add("hidden");
                   updateContactBtn?.classList.remove("hidden");
@@ -517,7 +523,7 @@
         return;
       }
 
-      // Determine the 'to' identifier based on the primary method
+      // Determine the 'to' identifier based on the primary method stored in contact
       let toIdentifier = null;
       if (recipientContact.method === "app") {
           toIdentifier = recipientContact.email;
