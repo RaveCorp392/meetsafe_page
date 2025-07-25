@@ -23,6 +23,18 @@
     .input-field {
       @apply block w-full my-2 p-2 border rounded focus:ring-blue-500 focus:border-blue-500;
     }
+    .invite-card {
+      @apply bg-blue-100 border border-blue-300 p-3 rounded-lg shadow-sm mb-2;
+    }
+    .invite-actions {
+      @apply mt-2 space-x-2;
+    }
+    .accept-btn {
+      @apply bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600;
+    }
+    .decline-btn {
+      @apply bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600;
+    }
   </style>
 </head>
 <body class="p-6 space-y-8">
@@ -49,10 +61,19 @@
     <div id="receivedMessagesLog" class="log-area bg-blue-900 text-white p-4 h-64 overflow-y-scroll text-sm rounded-lg shadow-inner mt-4">Waiting for messages...</div>
   </div>
 
+  <!-- Pending Invitations Section -->
+  <div class="bg-white p-4 rounded shadow">
+    <h2 class="text-lg font-semibold mb-2">Pending Invitations</h2>
+    <div id="pendingInvitesList" class="space-y-3">
+      <p class="text-gray-600">No pending invitations.</p>
+    </div>
+  </div>
+
+
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getFirestore, collection, query, where, onSnapshot, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getFirestore, collection, query, where, onSnapshot, Timestamp, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     // Firebase configuration provided by the Canvas environment
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -74,6 +95,7 @@
     let currentUserReceiver = null;
     let currentUserIdReceiver = null;
     let unsubscribeMessages = null; // To store the unsubscribe function for messages listener
+    let unsubscribeInvites = null; // New: To store the unsubscribe function for invites listener
 
     // --- Log Function ---
     const logToMonitor = (msg, type = "info", targetLogId = "receivedMessagesLog") => {
@@ -86,6 +108,8 @@
         else if (type === "error") colorClass = "text-red-400";
         else if (type === "warning") colorClass = "text-yellow-400";
         else if (type === "received") colorClass = "text-blue-300";
+        else if (type === "invite") colorClass = "text-purple-300";
+
 
         line.innerHTML = `<span class="${colorClass}">[${time}] ${msg}</span>`;
         el.appendChild(line);
@@ -110,8 +134,10 @@
     initialAuthReceiver();
 
     document.getElementById("signUpBtnReceiver")?.addEventListener("click", async () => {
-      const email = document.getElementById("authEmailReceiver")?.value || '';
-      const pw = document.getElementById("authPasswordReceiver")?.value || '';
+      const emailInput = document.getElementById("authEmailReceiver");
+      const pwInput = document.getElementById("authPasswordReceiver");
+      const email = emailInput?.value || '';
+      const pw = pwInput?.value || '';
       if (!email || !pw) {
         logToMonitor("Receiver: Email and password cannot be empty for sign up.", "warning", "receivedMessagesLog");
         return;
@@ -125,8 +151,10 @@
     });
 
     document.getElementById("signInBtnReceiver")?.addEventListener("click", async () => {
-      const email = document.getElementById("authEmailReceiver")?.value || '';
-      const pw = document.getElementById("authPasswordReceiver")?.value || '';
+      const emailInput = document.getElementById("authEmailReceiver");
+      const pwInput = document.getElementById("authPasswordReceiver");
+      const email = emailInput?.value || '';
+      const pw = pwInput?.value || '';
       if (!email || !pw) {
         logToMonitor("Receiver: Email and password cannot be empty for sign in.", "warning", "receivedMessagesLog");
         return;
@@ -153,6 +181,14 @@
           unsubscribeMessages(); // Unsubscribe from messages when signing out
           unsubscribeMessages = null;
         }
+        if (unsubscribeInvites) { // New: Unsubscribe from invites
+          unsubscribeInvites();
+          unsubscribeInvites = null;
+        }
+        const pendingInvitesListEl = document.getElementById("pendingInvitesList");
+        if (pendingInvitesListEl) {
+          pendingInvitesListEl.innerHTML = '<p class="text-gray-600">No pending invitations.</p>';
+        }
       } catch (error) {
         logToMonitor(`Receiver: Sign out error: ${error.message}`, "error", "receivedMessagesLog");
       }
@@ -173,16 +209,28 @@
 
       if (currentUserReceiver) {
         logToMonitor(`Receiver: Authenticated as: ${currentUserReceiver.email || 'Anonymous'} (UID: ${currentUserReceiver.uid})`, "info", "receivedMessagesLog");
+        // Start listening for invites when authenticated
+        if (currentUserIdReceiver && currentUserReceiver.email) {
+            listenForInvites(currentUserReceiver.email);
+        }
       } else {
         logToMonitor("Receiver: Not authenticated.", "info", "receivedMessagesLog");
         const receivedMessagesLogEl = document.getElementById("receivedMessagesLog");
         if (receivedMessagesLogEl) {
           receivedMessagesLogEl.innerHTML = "Waiting for messages...";
         }
+        if (unsubscribeInvites) { // New: Unsubscribe from invites
+          unsubscribeInvites();
+          unsubscribeInvites = null;
+        }
+        const pendingInvitesListEl = document.getElementById("pendingInvitesList");
+        if (pendingInvitesListEl) {
+          pendingInvitesListEl.innerHTML = '<p class="text-gray-600">No pending invitations.</p>';
+        }
       }
     });
 
-    // --- Start Listening Button for Receiver ---
+    // --- Start Listening Button for Receiver (for general messages) ---
     document.getElementById("startListeningBtn")?.addEventListener("click", () => {
       if (!currentUserReceiver || !currentUserIdReceiver) {
         logToMonitor("Receiver: Please sign in to start listening for messages.", "warning", "receivedMessagesLog");
@@ -197,7 +245,7 @@
       // Unsubscribe from previous listener if any
       if (unsubscribeMessages) {
         unsubscribeMessages();
-        logToMonitor("Receiver: Stopped listening to previous rendezvous.", "info", "receivedMessagesLog");
+        logToMonitor("Receiver: Stopped listening to previous general messages.", "info", "receivedMessagesLog");
       }
       const receivedMessagesLogEl = document.getElementById("receivedMessagesLog");
       if (receivedMessagesLogEl) {
@@ -220,8 +268,118 @@
       }, (error) => {
         logToMonitor(`Receiver: Error fetching messages: ${error.message}`, "error", "receivedMessagesLog");
       });
-      logToMonitor(`Receiver: Started listening for messages in Rendezvous ID: ${rendezvousIdToListen}`, "info", "receivedMessagesLog");
+      logToMonitor(`Receiver: Started listening for general messages in Rendezvous ID: ${rendezvousIdToListen}`, "info", "receivedMessagesLog");
     });
+
+    // --- New Invite Listening Logic ---
+    const listenForInvites = (receiverEmail) => {
+        if (unsubscribeInvites) {
+            unsubscribeInvites(); // Unsubscribe from previous invite listener
+        }
+        const pendingInvitesListEl = document.getElementById("pendingInvitesList");
+        if (pendingInvitesListEl) {
+            pendingInvitesListEl.innerHTML = '<p class="text-gray-600">No pending invitations.</p>'; // Clear invites
+        }
+
+        const publicInvitesCollectionRef = collection(db, `artifacts/${appId}/publicInvites`);
+        const invitesQuery = query(
+            publicInvitesCollectionRef,
+            where("recipientEmail", "==", receiverEmail),
+            where("inviteStatus", "==", "pending")
+        );
+
+        unsubscribeInvites = onSnapshot(invitesQuery, (snapshot) => {
+            const invitesListEl = document.getElementById("pendingInvitesList");
+            if (!invitesListEl) return;
+            invitesListEl.innerHTML = ''; // Clear existing invites
+
+            if (snapshot.empty) {
+                invitesListEl.innerHTML = '<p class="text-gray-600">No pending invitations.</p>';
+            } else {
+                snapshot.forEach(docSnap => {
+                    const inviteData = docSnap.data();
+                    const inviteId = docSnap.id;
+                    const inviteCard = document.createElement("div");
+                    inviteCard.classList.add("invite-card");
+                    inviteCard.innerHTML = `
+                        <p><strong>Invitation from:</strong> ${inviteData.senderEmail || inviteData.senderUid}</p>
+                        <p><strong>To be your safety contact.</strong></p>
+                        <div class="invite-actions">
+                            <button class="accept-btn" data-invite-id="${inviteId}" data-sender-uid="${inviteData.senderUid}" data-sender-email="${inviteData.senderEmail}" data-recipient-email="${inviteData.recipientEmail}" data-recipient-phone="${inviteData.recipientPhone || ''}">Accept</button>
+                            <button class="decline-btn" data-invite-id="${inviteId}" data-sender-uid="${inviteData.senderUid}">Decline</button>
+                        </div>
+                    `;
+                    invitesListEl.appendChild(inviteCard);
+                    logToMonitor(`Receiver: New invitation from ${inviteData.senderEmail || inviteData.senderUid}.`, "invite", "receivedMessagesLog");
+                });
+
+                // Attach event listeners for accept/decline buttons
+                document.querySelectorAll('.accept-btn').forEach(button => {
+                    button.addEventListener('click', async (e) => {
+                        const inviteId = e.target.dataset.inviteId;
+                        const senderUid = e.target.dataset.senderUid;
+                        const senderEmail = e.target.dataset.senderEmail;
+                        const recipientEmail = e.target.dataset.recipientEmail;
+                        const recipientPhone = e.target.dataset.recipientPhone;
+                        
+                        if (!currentUserIdReceiver) {
+                            logToMonitor("Receiver: Not signed in to accept invite.", "warning", "receivedMessagesLog");
+                            return;
+                        }
+
+                        try {
+                            // Update the invite status in the public invites collection
+                            await updateDoc(doc(db, `artifacts/${appId}/publicInvites/${inviteId}`), {
+                                inviteStatus: "accepted",
+                                acceptedByUid: currentUserIdReceiver,
+                                acceptedAt: Timestamp.now()
+                            });
+                            logToMonitor(`Receiver: Accepted invitation from ${senderEmail}.`, "success", "receivedMessagesLog");
+
+                            // Also, add the sender as a contact for the receiver
+                            // This requires knowing the sender's UID, which we pass via data attributes.
+                            await addDoc(collection(db, `artifacts/${appId}/users/${currentUserIdReceiver}/contacts`), {
+                                name: senderEmail, // Use sender's email as name for simplicity
+                                email: senderEmail,
+                                phoneNumber: recipientPhone || null, // Use recipientPhone from invite data for receiver's contact
+                                method: "app", // Assuming accepted invite means app contact
+                                createdAt: Timestamp.now(),
+                                userId: currentUserIdReceiver, // This is the receiver's UID
+                                inviteStatus: "accepted" // Mark this contact as accepted
+                            });
+                            logToMonitor(`Receiver: Added ${senderEmail} to your contacts.`, "success", "receivedMessagesLog");
+
+                        } catch (error) {
+                            logToMonitor(`Receiver: Error accepting invite: ${error.message}`, "error", "receivedMessagesLog");
+                        }
+                    });
+                });
+
+                document.querySelectorAll('.decline-btn').forEach(button => {
+                    button.addEventListener('click', async (e) => {
+                        const inviteId = e.target.dataset.inviteId;
+                        const senderUid = e.target.dataset.senderUid; // Sender's UID
+                        if (!currentUserIdReceiver) {
+                            logToMonitor("Receiver: Not signed in to decline invite.", "warning", "receivedMessagesLog");
+                            return;
+                        }
+                        try {
+                            await updateDoc(doc(db, `artifacts/${appId}/publicInvites/${inviteId}`), {
+                                inviteStatus: "rejected",
+                                rejectedByUid: currentUserIdReceiver,
+                                rejectedAt: Timestamp.now()
+                            });
+                            logToMonitor(`Receiver: Declined invitation from ${senderUid}.`, "info", "receivedMessagesLog");
+                        } catch (error) {
+                            logToMonitor(`Receiver: Error declining invite: ${error.message}`, "error", "receivedMessagesLog");
+                        }
+                    });
+                });
+            }
+        }, (error) => {
+            logToMonitor(`Receiver: Error listening for invites: ${error.message}`, "error", "receivedMessagesLog");
+        });
+    };
   </script>
 </body>
 </html>
