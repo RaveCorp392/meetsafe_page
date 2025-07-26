@@ -2,137 +2,132 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>MeetSafe Reschedule Console v24.7.25.3</title>
+  <title>MeetSafe Reschedule Console (v27.7.25.2)</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    .cancelled {
-      text-decoration: line-through;
-      opacity: 0.5;
-    }
-  </style>
 </head>
-<body class="bg-gray-100 p-6 font-sans">
-  <div class="flex justify-between items-center mb-6">
-    <h1 class="text-2xl font-bold">MeetSafe Reschedule Console</h1>
-    <span class="text-sm text-gray-500">v24.7.25.3</span>
-  </div>
+<body class="p-6 bg-gray-100 text-gray-800 font-sans space-y-6">
+  <h1 class="text-2xl font-bold">Reschedule Console <span class="text-sm text-gray-500">(v27.7.25.2)</span></h1>
+  <div id="currentTime" class="text-sm text-gray-600"></div>
 
-  <div class="mb-4">
-    <input id="authEmail" placeholder="Email" class="border p-2 rounded mr-2">
-    <input id="authPassword" type="password" placeholder="Password" class="border p-2 rounded mr-2">
+  <div>
+    <input id="email" placeholder="Email" class="border px-2 py-1" />
+    <input id="password" type="password" placeholder="Password" class="border px-2 py-1" />
     <button id="signInBtn" class="bg-blue-500 text-white px-3 py-1 rounded">Sign In</button>
     <button id="signOutBtn" class="bg-red-500 text-white px-3 py-1 rounded">Sign Out</button>
+    <p>Signed in as: <span id="currentUserEmail">None</span></p>
   </div>
 
-  <div class="mb-6">
-    Logged in as: <span id="currentUserDisplay">None</span>
+  <div>
+    <h2 class="font-semibold text-lg mb-2">Your Rendezvous</h2>
+    <div id="rendezvousList" class="space-y-4"></div>
   </div>
-
-  <div id="rdvList" class="space-y-4"></div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getFirestore, collection, query, where, doc, updateDoc, Timestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getFirestore, collection, query, where, getDocs, updateDoc, doc, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    const config = {
+    const firebaseConfig = {
       apiKey: "AIzaSyAV52Ads-ckhKuGsKvHoYYTrDIqBHMHusQ",
       authDomain: "meetsafe-clean-core.firebaseapp.com",
       projectId: "meetsafe-clean-core"
     };
 
-    const app = initializeApp(config);
+    const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
-
     let currentUser = null;
 
+    function updateCurrentTime() {
+      const now = new Date().toLocaleString("en-AU", { timeZone: "Australia/Brisbane" });
+      document.getElementById("currentTime").textContent = `Current time (AEST): ${now}`;
+    }
+
+    setInterval(updateCurrentTime, 1000);
+    updateCurrentTime();
+
     document.getElementById("signInBtn").onclick = async () => {
-      const email = document.getElementById("authEmail").value;
-      const pw = document.getElementById("authPassword").value;
+      const email = document.getElementById("email").value;
+      const pw = document.getElementById("password").value;
       await signInWithEmailAndPassword(auth, email, pw);
     };
 
     document.getElementById("signOutBtn").onclick = () => signOut(auth);
 
-    onAuthStateChanged(auth, user => {
+    onAuthStateChanged(auth, async (user) => {
       currentUser = user;
-      document.getElementById("currentUserDisplay").textContent = user?.email || "None";
-      if (user) loadRendezvous();
+      document.getElementById("currentUserEmail").textContent = user ? user.email : "None";
+      if (user) {
+        loadRendezvous();
+      } else {
+        document.getElementById("rendezvousList").innerHTML = "";
+      }
     });
 
-    function localInputString(timestamp) {
-      const d = timestamp.toDate();
-      const offset = d.getTimezoneOffset();
-      const local = new Date(d.getTime() - offset * 60000);
-      return local.toISOString().slice(0,16);
-    }
+    async function loadRendezvous() {
+      const q = query(collection(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous`), where("status", "==", "active"));
+      const snap = await getDocs(q);
+      const list = document.getElementById("rendezvousList");
+      list.innerHTML = "";
 
-    function timestampFromInput(str) {
-      const d = new Date(str);
-      return Timestamp.fromDate(d);
-    }
+      snap.forEach(docSnap => {
+        const data = docSnap.data();
+        const wrapper = document.createElement("div");
+        wrapper.className = "bg-white p-4 rounded shadow";
 
-    function createRdvCard(docSnap) {
-      const data = docSnap.data();
-      const card = document.createElement("div");
-      card.className = `bg-white rounded shadow p-4 ${data.status === "cancelled" ? "cancelled" : ""}`;
-      card.innerHTML = `
-        <div class="flex justify-between items-center mb-2">
-          <h2 class="text-lg font-semibold">${data.contactName}</h2>
-          <div>
-            ${data.status !== "cancelled"
-              ? `<button class="text-sm text-red-600 underline mr-2" data-action="cancel">Cancel</button>`
-              : `<button class="text-sm text-green-600 underline" data-action="undo">Undo Cancel</button>`}
-          </div>
-        </div>
-        <div class="space-y-2 ${data.status === "cancelled" ? "hidden" : ""}" data-editable>
-          <input class="border p-2 w-full rounded" data-field="contactName" value="${data.contactName}">
-          <input type="datetime-local" class="border p-2 w-full rounded" data-field="startTime" value="${localInputString(data.startTime)}">
-          <input type="datetime-local" class="border p-2 w-full rounded" data-field="endTime" value="${localInputString(data.endTime)}">
-          <select class="border p-2 w-full rounded" data-field="checkInType">
-            <option value="none" ${data.checkInType === "none" ? "selected" : ""}>No Check-In</option>
-            <option value="10min" ${data.checkInType === "10min" ? "selected" : ""}>10 Minute</option>
-          </select>
-          <button class="bg-blue-500 text-white px-4 py-2 rounded" data-action="save">Save</button>
-        </div>
-      `;
+        const header = document.createElement("h3");
+        header.className = "font-semibold";
+        header.textContent = data.contactName || "Unnamed Rendezvous";
+        wrapper.appendChild(header);
 
-      const editable = card.querySelector("[data-editable]");
-      const contactNameInput = card.querySelector('[data-field="contactName"]');
-      const startInput = card.querySelector('[data-field="startTime"]');
-      const endInput = card.querySelector('[data-field="endTime"]');
-      const checkInSelect = card.querySelector('[data-field="checkInType"]');
+        const startInput = document.createElement("input");
+        startInput.type = "datetime-local";
+        startInput.value = toInputDateTime(data.startTime?.seconds * 1000);
+        startInput.className = "border p-1 m-1";
 
-      card.querySelectorAll("[data-action]").forEach(btn => {
-        btn.onclick = async () => {
-          const action = btn.getAttribute("data-action");
+        const endInput = document.createElement("input");
+        endInput.type = "datetime-local";
+        endInput.value = toInputDateTime(data.endTime?.seconds * 1000);
+        endInput.className = "border p-1 m-1";
+
+        const checkInType = document.createElement("select");
+        checkInType.className = "border p-1 m-1";
+        ["none", "10min"].forEach(opt => {
+          const o = document.createElement("option");
+          o.value = opt;
+          o.textContent = opt === "10min" ? "10-Minute" : "None";
+          if (data.checkInType === opt) o.selected = true;
+          checkInType.appendChild(o);
+        });
+
+        const saveBtn = document.createElement("button");
+        saveBtn.textContent = "Save";
+        saveBtn.className = "bg-green-600 text-white px-2 py-1 rounded ml-2";
+        saveBtn.onclick = async () => {
           const ref = doc(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous/${docSnap.id}`);
-          if (action === "cancel") {
-            await updateDoc(ref, { status: "cancelled" });
-          } else if (action === "undo") {
-            await updateDoc(ref, { status: "active" });
-          } else if (action === "save") {
-            await updateDoc(ref, {
-              contactName: contactNameInput.value,
-              startTime: timestampFromInput(startInput.value),
-              endTime: timestampFromInput(endInput.value),
-              checkInType: checkInSelect.value
-            });
-          }
+          await updateDoc(ref, {
+            startTime: Timestamp.fromDate(new Date(startInput.value)),
+            endTime: Timestamp.fromDate(new Date(endInput.value)),
+            checkInType: checkInType.value,
+            updatedAt: Timestamp.now()
+          });
+          alert("Saved changes.");
         };
-      });
 
-      return card;
+        wrapper.appendChild(startInput);
+        wrapper.appendChild(endInput);
+        wrapper.appendChild(checkInType);
+        wrapper.appendChild(saveBtn);
+
+        list.appendChild(wrapper);
+      });
     }
 
-    function loadRendezvous() {
-      const list = document.getElementById("rdvList");
-      const q = query(collection(db, `artifacts/meetsafe-clean-core/users/${currentUser.uid}/rendezvous`));
-      onSnapshot(q, snap => {
-        list.innerHTML = "";
-        snap.docs.forEach(doc => list.appendChild(createRdvCard(doc)));
-      });
+    function toInputDateTime(ms) {
+      const date = new Date(ms);
+      const offset = date.getTimezoneOffset() * 60000;
+      const localISO = new Date(ms - offset).toISOString().slice(0, 16);
+      return localISO;
     }
   </script>
 </body>
