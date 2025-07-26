@@ -152,7 +152,7 @@
     let isProUserSender = false;
     let userContactsSender = [];
     let editingContactId = null; // New state variable to track which contact is being edited
-    let unsubscribeSentInvites = null; // New: To store the unsubscribe function for sent invites listener
+    let unsubscribeSentInvites = null; // To store the unsubscribe function for sent invites listener
 
     // Map to track message counts for free users per contact (identifier -> count)
     // This map will no longer be used for app-to-app limits, but kept for potential future use or other limits.
@@ -174,1356 +174,602 @@
         el.appendChild(line);
         el.scrollTop = el.scrollHeight;
       }
-    };
-
-    // --- Authentication Logic (Sender) ---
-    const initialAuthSender = async () => {
-      try {
-        if (typeof __initial_auth_token !== 'undefined') {
-          await signInWithCustomToken(auth, __initial_auth_token);
-          logToMonitor("Sender: Signed in with custom token.", "success", "monitorLogSender");
-        } else {
-          await signInAnonymously(auth);
-          logToMonitor("Sender: Signed in anonymously.", "info", "monitorLogSender");
-        }
-      } catch (error) {
-        logToMonitor(`Sender: Initial authentication error: ${error.message}`, "error", "monitorLogSender");
-      }
-    };
-    initialAuthSender();
-
-    document.getElementById("signUpBtnSender")?.addEventListener("click", async () => {
-      const emailInput = document.getElementById("authEmailSender");
-      const pwInput = document.getElementById("authPasswordSender");
-      const email = emailInput?.value || '';
-      const pw = pwInput?.value || '';
-      if (!email || !pw) {
-        logToMonitor("Sender: Email and password cannot be empty for sign up.", "warning", "monitorLogSender");
-        return;
-      }
-      try {
-        await createUserWithEmailAndPassword(auth, email, pw);
-        logToMonitor("Sender: User signed up successfully!", "success", "monitorLogSender");
-      } catch (error) {
-        logToMonitor(`Sender: Sign up error: ${error.message}`, "error", "monitorLogSender");
-      }
-    });
-
-    document.getElementById("signInBtnSender")?.addEventListener("click", async () => {
-      const emailInput = document.getElementById("authEmailSender");
-      const pwInput = document.getElementById("authPasswordSender");
-      const email = emailInput?.value || '';
-      const pw = pwInput?.value || '';
-      if (!email || !pw) {
-        logToMonitor("Sender: Email and password cannot be empty for sign in.", "warning", "monitorLogSender");
-        return;
-      }
-      try {
-        await signInWithEmailAndPassword(auth, email, pw);
-        logToMonitor("Sender: User signed in successfully!", "success", "monitorLogSender");
-      } catch (error) {
-        logToMonitor(`Sender: Sign in error: ${error.message}`, "error", "monitorLogSender");
-      }
-    });
-
-    document.getElementById("signOutBtnSender")?.addEventListener("click", async () => {
-      try {
-        await signOut(auth); // Sign out the current user
-        logToMonitor("Sender: User signed out.", "info", "monitorLogSender");
-        currentUserSender = null;
-        currentUserIdSender = null;
-        userContactsSender = [];
-        renderContacts();
-        populateRecipientDropdown();
-        freeUserMessageCounts.clear();
-        editingContactId = null; // Clear edit state on sign out
-        resetContactForm();
-        if (unsubscribeSentInvites) { // New: Unsubscribe from sent invites
-          unsubscribeSentInvites();
-          unsubscribeSentInvites = null;
-        }
-      } catch (error) {
-        logToMonitor(`Sender: Sign out error: ${error.message}`, "error", "monitorLogSender");
-      }
-    });
-
-    onAuthStateChanged(auth, (user) => {
-      currentUserSender = user || null;
-      currentUserIdSender = user?.uid || null;
-      const currentUserDisplayEl = document.getElementById("currentUserDisplaySender");
-      const currentUidDisplayEl = document.getElementById("currentUidDisplaySender");
-
-      if (currentUserDisplayEl) {
-        currentUserDisplayEl.textContent = user?.email || "Not authenticated";
-      }
-      if (currentUidDisplayEl) {
-        currentUidDisplayEl.textContent = currentUserIdSender || "N/A";
-      }
-
-      if (currentUserSender) {
-        logToMonitor(`Sender: Authenticated as: ${currentUserSender.email || 'Anonymous'} (UID: ${currentUserSender.uid})`, "info", "monitorLogSender");
-        if (currentUserIdSender) {
-          const contactsQuery = query(collection(db, `artifacts/${appId}/users/${currentUserIdSender}/contacts`));
-          onSnapshot(contactsQuery, (snapshot) => {
-            userContactsSender = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            renderContacts();
-            populateRecipientDropdown();
-            logToMonitor("Sender: Contacts updated.", "info", "monitorLogSender");
-          }, (error) => {
-            logToMonitor(`Sender: Error fetching contacts: ${error.message}`, "error", "monitorLogSender");
-          });
-          // New: Start listening for changes to sent invites
-          listenForSentInvites(currentUserIdSender);
-        }
-      } else {
-        logToMonitor("Sender: Not authenticated.", "info", "monitorLogSender");
-        if (unsubscribeSentInvites) { // New: Unsubscribe from sent invites
-          unsubscribeSentInvites();
-          unsubscribeSentInvites = null;
-        }
-      }
-    });
-
-    document.getElementById("isProUserSender")?.addEventListener("change", (e) => {
-      isProUserSender = e.target.checked;
-      logToMonitor(`Sender: Simulating Pro User: ${isProUserSender}`, "info", "monitorLogSender");
-      // Reset form and edit state when Pro status changes, as rules might change
-      editingContactId = null;
-      resetContactForm();
-    });
-
-    // --- Contact Management Logic ---
-    const contactNameInput = document.getElementById("contactName");
-    const contactEmailInput = document.getElementById("contactEmail");
-    const contactPhoneInput = document.getElementById("contactPhone");
-    // Removed: const contactMethodSelect = document.getElementById("contactMethod");
-    const addContactBtn = document.getElementById("addContactBtn");
-    const updateContactBtn = document.getElementById("updateContactBtn");
-    const cancelEditBtn = document.getElementById("cancelEditBtn");
-
-    const resetContactForm = () => {
-        if (contactNameInput) contactNameInput.value = "";
-        if (contactEmailInput) contactEmailInput.value = "";
-        if (contactPhoneInput) contactPhoneInput.value = "";
-        // Removed: if (contactMethodSelect) contactMethodSelect.value = "app"; // Default to app
-        addContactBtn?.classList.remove("hidden");
-        updateContactBtn?.classList.add("hidden");
-        cancelEditBtn?.classList.add("hidden");
-        editingContactId = null;
-    };
-
-    addContactBtn?.addEventListener("click", async () => {
-      if (!currentUserSender || !currentUserIdSender) {
-        logToMonitor("Sender: Please sign in to add contacts.", "warning", "monitorLogSender");
-        return;
-      }
-      
-      const name = contactNameInput?.value.trim() || '';
-      const email = contactEmailInput?.value.trim() || '';
-      const phone = contactPhoneInput?.value.trim() || '';
-      // Dynamically determine method based on provided identifiers
-      let method = "app"; // Default to app if email is provided
-      if (!email && phone) { // If no email but phone is provided, it's an SMS contact
-          method = "sms";
-      } else if (!email && !phone) { // If neither, it's an invalid contact
-          logToMonitor("Sender: Contact must have at least an email or a phone number.", "warning", "monitorLogSender");
-          return;
-      }
-
-
-      // NEW LIMIT: Free users can only add contacts with 'app' method (i.e., must provide an email)
-      if (!isProUserSender && method === "sms") { // If free user and method determined to be SMS
-        const upgradeModalEl = document.getElementById("upgradeModal");
-        if (upgradeModalEl) {
-          upgradeModalEl.classList.remove("hidden");
-          const upgradeModalP = upgradeModalEl.querySelector('p');
-          if (upgradeModalP) {
-            upgradeModalP.textContent = "Free users can only add contacts for in-app communication (must provide an email). Please upgrade to Pro for SMS-only contact support.";
-          }
-        }
-        logToMonitor("Sender: Free users can only add contacts for in-app communication (must provide an email).", "warning", "monitorLogSender");
-        return;
-      }
-
-      try {
-        // First, add the contact to the sender's private contacts list
-        const newContactRef = collection(db, `artifacts/${appId}/users/${currentUserIdSender}/contacts`);
-        const docRef = await addDoc(newContactRef, { // Store inviteStatus
-          name,
-          email: email || null, // Store email, null if empty
-          phoneNumber: phone || null, // Store phone, null if empty
-          method, // Dynamically determined method
-          createdAt: Timestamp.now(),
-          userId: currentUserIdSender,
-          inviteStatus: "pending" // Initial invite status
-        });
-        logToMonitor(`Sender: Contact '${name}' added successfully to your list.`, "success", "monitorLogSender");
-        
-        // THEN, create an invite document in the publicInvites collection for the receiver to find
-        const publicInviteRef = collection(db, `artifacts/${appId}/publicInvites`);
-        await addDoc(publicInviteRef, {
-            senderUid: currentUserIdSender,
-            senderEmail: currentUserSender?.email || 'Anonymous Sender', // Sender's email for display on receiver side
-            recipientEmail: email, // The contact's email (receiver's email)
-            recipientPhone: phone || null, // The contact's phone (receiver's phone)
-            inviteStatus: "pending",
-            createdAt: Timestamp.now(),
-            contactDocId: docRef.id // Store reference to the sender's contact document
-        });
-        logToMonitor(`Sender: Created public invite for ${email || name} in publicInvites.`, "info", "monitorLogSender");
-
-
-        // Simulate sending invite/notification
-        if (method === "app") {
-            logToMonitor(`Sender: Simulated in-app invite sent to ${email || name}.`, "info", "monitorLogSender");
-            // In future, this would trigger a server-side call to send a real in-app notification
-        } else if (method === "sms") {
-            // For SMS contacts, even for Pro users, the primary invite is email.
-            // SMS fallback for invite would happen if email not confirmed.
-            logToMonitor(`Sender: Simulated email invite sent to ${email || name} (for SMS contact).`, "info", "monitorLogSender");
-            // In future, this would trigger a server-side call to send a real email invite
-        }
-
-        resetContactForm(); // Reset form after adding
-      } catch (error) {
-        logToMonitor(`Sender: Error adding contact: ${error.message}`, "error", "monitorLogSender");
-      }
-    });
-
-    updateContactBtn?.addEventListener("click", async () => {
-        if (!currentUserSender || !currentUserIdSender || !editingContactId) {
-            logToMonitor("Sender: Not in edit mode or not signed in.", "warning", "monitorLogSender");
-            return;
-        }
-
-        const name = contactNameInput?.value.trim() || '';
-        const email = contactEmailInput?.value.trim() || '';
-        const phone = contactPhoneInput?.value.trim() || '';
-        // Dynamically determine method for update based on provided identifiers
-        let method = "app";
-        if (!email && phone) {
-            method = "sms";
-        } else if (!email && !phone) {
-            logToMonitor("Sender: Contact must have at least an email or a phone number.", "warning", "monitorLogSender");
-            return;
-        }
-
-        // NEW LIMIT: Free users can only add/edit contacts with 'app' method
-        if (!isProUserSender && method === "sms") {
-            const upgradeModalEl = document.getElementById("upgradeModal");
-            if (upgradeModalEl) {
-                upgradeModalEl.classList.remove("hidden");
-                const upgradeModalP = upgradeModalEl.querySelector('p');
-                if (upgradeModalP) {
-                    upgradeModalP.textContent = "Free users can only edit contacts with 'App' method (no SMS contacts). Please upgrade to Pro for SMS contact support.";
-                }
-            }
-            logToMonitor("Sender: Free users can only edit contacts with 'App' method (no SMS contacts).", "warning", "monitorLogSender");
-            return;
-        }
-
-        try {
-            const contactRef = doc(db, `artifacts/${appId}/users/${currentUserIdSender}/contacts/${editingContactId}`);
-            await updateDoc(contactRef, {
-                name,
-                email: email || null,
-                phoneNumber: phone || null,
-                method
-                // inviteStatus is not updated on edit unless explicitly intended
-            });
-            logToMonitor(`Sender: Contact '${name}' updated successfully.`, "success", "monitorLogSender");
-
-            // If the method was changed from app to sms for a Pro user, or vice-versa,
-            // or if the email changed, you might need to update the public invite document too.
-            // For simplicity in this console, we're not updating the public invite on contact edit.
-            // In a real app, this would be handled by server-side logic (e.g., Cloud Function on contact update).
-
-            resetContactForm(); // Reset form after updating
-        } catch (error) {
-            logToMonitor(`Sender: Error updating contact: ${error.message}`, "error", "monitorLogSender");
-        }
-    });
-
-    cancelEditBtn?.addEventListener("click", () => {
-        logToMonitor("Sender: Edit cancelled.", "info", "monitorLogSender");
-        resetContactForm();
-    });
-
-    const renderContacts = () => {
-      const listEl = document.getElementById("contactsList");
-      if (!listEl) return; // Null check for contactsList
-      listEl.innerHTML = "";
-      if (userContactsSender.length === 0) {
-        listEl.innerHTML = "<li>No contacts added yet.</li>";
-        return;
-      }
-      userContactsSender.forEach(contact => {
-        const li = document.createElement("li");
-        let identifierDisplay = [];
-        if (contact.email) identifierDisplay.push(`Email: ${contact.email}`);
-        if (contact.phoneNumber) identifierDisplay.push(`Phone: ${contact.phoneNumber}`);
-        li.innerHTML = `
-          <span>${contact.name} (${identifierDisplay.join(', ')}) [Determined: ${contact.method}] (Invite: ${contact.inviteStatus || 'N/A'})</span>
-          <div class="contact-actions">
-            <button class="edit-btn" data-contact-id="${contact.id}">Edit</button>
-            <button class="delete-btn" data-contact-id="${contact.id}">Delete</button>
-          </div>
-        `;
-        listEl.appendChild(li);
-      });
-
-      // Add event listeners for edit and delete buttons
-      document.querySelectorAll('.edit-btn').forEach(button => {
-          button.addEventListener('click', (e) => {
-              const contactId = e.target.dataset.contactId;
-              const contactToEdit = userContactsSender.find(c => c.id === contactId);
-              if (contactToEdit) {
-                  editingContactId = contactId;
-                  if (contactNameInput) contactNameInput.value = contactToEdit.name;
-                  if (contactEmailInput) contactEmailInput.value = contactToEdit.email || '';
-                  if (contactPhoneInput) contactPhoneInput.value = contactToEdit.phoneNumber || '';
-                  // Method is now determined, not selected, so no need to set select value
-                  // if (contactMethodSelect) contactMethodSelect.value = contactToEdit.method;
-
-                  addContactBtn?.classList.add("hidden");
-                  updateContactBtn?.classList.remove("hidden");
-                  cancelEditBtn?.classList.remove("hidden");
-                  logToMonitor(`Sender: Editing contact: ${contactToEdit.name}`, "info", "monitorLogSender");
-              }
-          });
-      });
-
-      document.querySelectorAll('.delete-btn').forEach(button => {
-          button.addEventListener('click', async (e) => {
-              const contactId = e.target.dataset.contactId;
-              if (!currentUserSender || !currentUserIdSender) {
-                  logToMonitor("Sender: Not signed in to delete contacts.", "warning", "monitorLogSender");
-                  return;
-              }
-              if (confirm(`Are you sure you want to delete this contact?`)) { // Using confirm for simplicity in console
-                  try {
-                      await deleteDoc(doc(db, `artifacts/${appId}/users/${currentUserIdSender}/contacts/${contactId}`));
-                      logToMonitor(`Sender: Contact deleted successfully.`, "success", "monitorLogSender");
-                      resetContactForm(); // Reset form in case deleted contact was being edited
-                  } catch (error) {
-                      logToMonitor(`Sender: Error deleting contact: ${error.message}`, "error", "monitorLogSender");
-                  }
-              }
-          });
-      });
-    };
-
-    const populateRecipientDropdown = () => {
-      const selectEl = document.getElementById("recipientContact");
-      if (!selectEl) return; // Null check for recipientContact
-      selectEl.innerHTML = '<option value="">Select a Contact</option>';
-      userContactsSender.forEach(contact => {
-        const option = document.createElement("option");
-        option.value = contact.id;
-        let identifierDisplay = [];
-        if (contact.email) identifierDisplay.push(contact.email);
-        if (contact.phoneNumber) identifierDisplay.push(contact.phoneNumber);
-        option.textContent = `${contact.name} (${identifierDisplay.join(' / ')})`;
-        selectEl.appendChild(option);
-      });
-    };
-
-    // --- Messaging Logic ---
-    document.getElementById("sendMessageBtn")?.addEventListener("click", async () => {
-      if (!currentUserSender || !currentUserIdSender) {
-        logToMonitor("Sender: Please sign in to send messages.", "warning", "monitorLogSender");
-        return;
-      }
-
-      const recipientContactSelect = document.getElementById("recipientContact");
-      const messageContentInput = document.getElementById("messageContent");
-      const testRendezvousIdInput = document.getElementById("testRendezvousIdSender");
-      const deliverySimRadio = document.querySelector('input[name="deliverySim"]:checked');
-
-      const selectedContactId = recipientContactSelect?.value || '';
-      const messageContent = messageContentInput?.value.trim() || '';
-      const testRendezvousId = testRendezvousIdInput?.value.trim() || '';
-      const simulateInAppSuccess = deliverySimRadio?.value === "success";
-
-      if (!selectedContactId || !messageContent || !testRendezvousId) {
-        logToMonitor("Sender: Please select a contact, enter message content, and a test rendezvous ID.", "warning", "monitorLogSender");
-        return;
-      }
-
-      const recipientContact = userContactsSender.find(c => c.id === selectedContactId);
-      if (!recipientContact) {
-        logToMonitor("Sender: Selected contact not found.", "error", "monitorLogSender");
-        return;
-      }
-
-      // Determine the 'to' identifier based on the primary method stored in contact
-      let toIdentifier = null;
-      if (recipientContact.method === "app") {
-          toIdentifier = recipientContact.email;
-      } else if (recipientContact.method === "sms") {
-          toIdentifier = recipientContact.phoneNumber;
-      }
-
-      if (!toIdentifier) {
-          logToMonitor(`Sender: Cannot send message. Contact '${recipientContact.name}' does not have a valid ${recipientContact.method} identifier.`, "error", "monitorLogSender");
-          return;
-      }
-
-      // NEW CONSTRAINT: Free user can only send to one unique app contact per Rendezvous
-      // AND for free users, SMS fallback is allowed only for this one app contact if in-app fails.
-      if (!isProUserSender) {
-          // If the primary method of the selected contact is SMS, block sending
-          if (recipientContact.method === "sms") {
-              const upgradeModalEl = document.getElementById("upgradeModal");
-              if (upgradeModalEl) {
-                  upgradeModalEl.classList.remove("hidden");
-                  const upgradeModalP = upgradeModalEl.querySelector('p');
-                  if (upgradeModalP) {
-                      upgradeModalP.textContent = "Free users can only send messages to contacts who have the app (no SMS messages). Please upgrade to Pro for SMS messaging.";
-                  }
-              }
-              logToMonitor("Sender: Free users can only send messages to app contacts.", "warning", "monitorLogSender");
-              return;
-          }
-
-          // Query for any existing app messages sent by this user within this rendezvous
-          const messagesSentByThisUserInRendezvousQuery = query(
-              collection(db, `artifacts/${appId}/messages/${testRendezvousId}/messages`),
-              where("from", "==", currentUserIdSender),
-              where("method", "==", "app")
-          );
-
-          const existingMessagesSnap = await getDocs(messagesSentByThisUserInRendezvousQuery);
-          let existingRecipientEmail = null;
-
-          if (!existingMessagesSnap.empty) {
-              // Get the recipient email from the first existing app message by this sender in this rendezvous
-              existingRecipientEmail = existingMessagesSnap.docs[0].data().recipientEmail;
-
-              // If a message already exists for this rendezvous with a different app recipient
-              if (existingRecipientEmail && existingRecipientEmail !== recipientContact.email) {
-                  const upgradeModalEl = document.getElementById("upgradeModal");
-                  if (upgradeModalEl) {
-                      upgradeModalEl.classList.remove("hidden");
-                      const upgradeModalP = upgradeModalEl.querySelector('p');
-                      if (upgradeModalP) {
-                          upgradeModalP.textContent = `Free users can only send messages to one unique app contact per rendezvous. This rendezvous is already associated with ${existingRecipientEmail}.`;
-                      }
-                  }
-                  logToMonitor(`Sender: Free user limit: This rendezvous is already associated with ${existingRecipientEmail}.`, "warning", "monitorLogSender");
-                  return;
-              }
-          }
-      }
-
-      try {
-        // Create a new subcollection for messages under the rendezvous ID
-        const messagesCollectionRef = collection(db, `artifacts/${appId}/messages/${testRendezvousId}/messages`);
-        const messageRef = await addDoc(messagesCollectionRef, {
-          to: toIdentifier, // Email for app, Phone for SMS
-          from: currentUserIdSender,
-          sentAt: Timestamp.now(),
-          delivered: false,
-          method: recipientContact.method,
-          fallback: "none",
-          acknowledged: false,
-          content: messageContent,
-          recipientEmail: recipientContact.email || null, // Store both for clarity
-          recipientPhone: recipientContact.phoneNumber || null // Store both for clarity
-        });
-        logToMonitor(`Sender: Message initiated to ${recipientContact.name} via ${recipientContact.method}. Message ID: ${messageRef.id}`, "info", "monitorLogSender");
-
-        if (recipientContact.method === "app") {
-          simulateInAppDelivery(messageRef, simulateInAppSuccess, recipientContact, testRendezvousId);
-        } else if (recipientContact.method === "sms") {
-          // If primary method is SMS, simulate direct SMS send (no in-app attempt first)
-          await updateDoc(messageRef, { delivered: true });
-          logToMonitor(`Sender: Direct SMS to ${recipientContact.name} simulated as sent.`, "success", "monitorLogSender");
-          // Trigger actual Twilio SMS if it's a direct SMS and a phone number exists
-          if (recipientContact.phoneNumber) {
-              sendTwilioSms(recipientContact.phoneNumber, messageContent, messageRef.id, "Direct SMS");
-          }
-        }
-
-      } catch (error) {
-        logToMonitor(`Sender: Error sending message: ${error.message}`, "error", "monitorLogSender");
-      }
-    });
-
-    const simulateInAppDelivery = (messageRef, success, recipientContact, rendezvousId) => {
-      const deliveryAttemptTimeout = 5000; // Simulate 5 seconds for initial delivery attempt
-      const fallbackCheckTimeout = 10000; // Check for fallback after 10 seconds (instead of 60s for faster testing)
-
-      let delivered = false;
-
-      // Simulate initial delivery attempt
-      setTimeout(async () => {
-        if (success) {
-          delivered = true;
-          await updateDoc(messageRef, { delivered: true });
-          logToMonitor(`Sender: In-app message to ${recipientContact.name} delivered successfully!`, "success", "monitorLogSender");
-        } else {
-          logToMonitor(`Sender: In-app message to ${recipientContact.name} failed to deliver immediately.`, "warning", "monitorLogSender");
-        }
-      }, deliveryAttemptTimeout);
-
-      // Check for fallback after `fallbackCheckTimeout` if not delivered
-      setTimeout(async () => {
-        if (!delivered) {
-          const messageSnap = await getDoc(messageRef);
-          const messageData = messageSnap.data();
-
-          if (!messageData.delivered && messageData.method === "app") {
-            logToMonitor(`Sender: In-app message to ${recipientContact.name} not confirmed delivered within ${fallbackCheckTimeout / 1000}s. Checking fallback...`, "warning", "monitorLogSender");
-
-            // MODIFIED: Free user now also gets SMS fallback for their one app contact
-            // The condition now checks if it's a Pro user OR if it's a Free user AND the contact has a phone number.
-            if (isProUserSender || (!isProUserSender && recipientContact.phoneNumber)) {
-              if (recipientContact.phoneNumber) { // Check if phone number is available for SMS fallback
-                 logToMonitor(`Sender: SMS fallback initiated for ${recipientContact.name}.`, "info", "monitorLogSender");
-                 // Trigger actual Twilio SMS
-                 sendTwilioSms(recipientContact.phoneNumber, messageData.content, messageRef.id, "Fallback SMS");
-                 await updateDoc(messageRef, { fallback: "sms", delivered: true }); // Mark delivered after fallback attempt
-                 logToMonitor(`Sender: SMS fallback to ${recipientContact.name}'s phone number triggered.`, "success", "monitorLogSender");
-              } else {
-                 logToMonitor(`Sender: Cannot fallback to SMS for ${recipientContact.name}: No phone number available.`, "warning", "monitorLogSender");
-              }
-            } else {
-              // This branch is now only for Free users who don't have a phone number for the contact
-              logToMonitor(`Sender: SMS fallback not available for Free User (${recipientContact.name}) without a phone number.`, "warning", "monitorLogSender");
-            }
-          }
-        }
-      }, fallbackCheckTimeout);
-    };
-
-    // --- Twilio SMS Function (Conceptual Client-Side) ---
-    // In a real application, this would be a fetch to your secure server-side proxy
-    const sendTwilioSms = async (toPhoneNumber, messageBody, messageId, type) => {
-        logToMonitor(`Twilio: Attempting to send ${type} to ${toPhoneNumber} for message ID: ${messageId}`, "info", "twilioSmsLog");
-        // IMPORTANT: Replace this with the actual URL of your server-side Twilio proxy.
-        // Your Twilio Account SID and Auth Token should be securely stored on your server-side proxy, NOT here.
-        const twilioProxyUrl = "http://127.0.0.1:5000/send-sms"; // This should be your proxy URL
-
-        if (twilioProxyUrl === "http://127.0.0.1:5000/send-sms" && !toPhoneNumber.includes('+')) {
-            logToMonitor("Twilio: Warning: Phone number might be invalid for real SMS. Ensure it includes country code (e.g., +61...).", "warning", "twilioSmsLog");
-        }
-
-
-        try {
-            const response = await fetch(twilioProxyUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    to: toPhoneNumber,
-                    body: messageBody,
-                    messageId: messageId // Pass message ID for server-side logging/tracking
-                }),
-            });
-
-            const result = await response.json();
-
-            if (response.ok) {
-                logToMonitor(`Twilio: ${type} sent successfully to ${toPhoneNumber}. Response: ${JSON.stringify(result)}`, "success", "twilioSmsLog");
-            } else {
-                logToMonitor(`Twilio: Failed to send ${type} to ${toPhoneNumber}. Error: ${result.error || response.statusText}`, "error", "twilioSmsLog");
-            }
-        } catch (error) {
-            logToMonitor(`Twilio: Network or unexpected error sending ${type} to ${toPhoneNumber}: ${error.message}`, "error", "twilioSmsLog");
-        }
-    };
-  </script>
-</body>
-</html>
-```
-I acknowledge your query. You're observing that the sender's console still shows "invite: pending" for a contact even after the receiver has successfully accepted the invitation.
-
-You've precisely identified the next logical piece of the puzzle! The sender's `userContactsSender` list, which is used to render the "Your Contacts" section, is populated by an `onSnapshot` listener on the sender's private `users/{senderUid}/contacts` collection. When the receiver accepts an invite, they update the `inviteStatus` in the **`publicInvites` collection**, but this change doesn't automatically propagate back to the sender's *private* contact document.
-
-**To synchronize the `inviteStatus` on the sender's side, we need to add a new listener in the sender console.** This listener will monitor the `publicInvites` collection for changes to invites that the current sender has initiated. When an invite's `inviteStatus` changes (e.g., from "pending" to "accepted" or "rejected"), the sender's local `userContactsSender` list needs to be updated, and then `renderContacts()` called to refresh the display.
-
-Here's how I will update the "MeetSafe Messaging Console (Sender)" Canvas:
-
-1.  **Add a new `unsubscribeSentInvites` variable** to manage the new listener.
-2.  **Implement a `listenForSentInvites` function:** This function will set up an `onSnapshot` listener on the `publicInvites` collection, filtering for invites where `senderUid` matches the current sender's UID.
-3.  **Inside the `onSnapshot` callback for sent invites:** When a change occurs (specifically a `modified` type change to `inviteStatus`), the `userContactsSender` array will be updated to reflect the new `inviteStatus` for the corresponding contact, and `renderContacts()` will be called.
-4.  **Call `listenForSentInvites`** when the sender authenticates.
-5.  **Unsubscribe `unsubscribeSentInvites`** when the sender signs out.
-
-Here is the updated "MeetSafe Messaging Console (Sender)" Canvas:
-
-
-```html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>MeetSafe Messaging Console (Sender)</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    body {
-      font-family: 'Inter', sans-serif;
-      background-color: #f3f4f6;
-    }
-    .log-area::-webkit-scrollbar {
-      width: 8px;
-    }
-    .log-area::-webkit-scrollbar-thumb {
-      background: #a0aec0;
-      border-radius: 10px;
-    }
-    .button-primary {
-      @apply bg-blue-500 text-white px-4 py-2 rounded shadow hover:bg-blue-600 transition-colors;
-    }
-    .button-secondary {
-      @apply bg-gray-300 text-gray-800 px-4 py-2 rounded shadow hover:bg-gray-400 transition-colors;
-    }
-    .input-field {
-      @apply block w-full my-2 p-2 border rounded focus:ring-blue-500 focus:border-blue-500;
-    }
-    .contact-actions {
-      @apply ml-4 space-x-2;
-    }
-    .edit-btn {
-      @apply bg-yellow-500 text-white px-2 py-1 rounded text-sm hover:bg-yellow-600;
-    }
-    .delete-btn {
-      @apply bg-red-500 text-white px-2 py-1 rounded text-sm hover:bg-red-600;
-    }
-  </style>
-</head>
-<body class="p-6 space-y-8">
-  <h1 class="text-3xl font-bold">MeetSafe Messaging Console (Sender)</h1>
-
-  <!-- Auth UI (Sender) -->
-  <div class="bg-white p-4 rounded shadow">
-    <h2 class="text-xl font-semibold mb-3">Authentication (Sender)</h2>
-    <input id="authEmailSender" type="email" class="input-field" placeholder="Email" value="sender@example.com"/>
-    <input id="authPasswordSender" type="password" class="input-field" placeholder="Password" value="password123"/>
-    <div class="flex space-x-2 mt-2">
-      <button id="signUpBtnSender" class="button-primary bg-blue-500">Sign Up</button>
-      <button id="signInBtnSender" class="button-primary bg-green-500">Sign In</button>
-      <button id="signOutBtnSender" class="button-primary bg-red-500">Sign Out</button>
-    </div>
-    <p class="mt-4 text-sm">Current User: <span id="currentUserDisplaySender" class="font-medium">Not authenticated</span><br>User ID: <span id="currentUidDisplaySender" class="font-medium">N/A</span></p>
-    <div class="mt-4">
-      <label class="inline-flex items-center">
-        <input type="checkbox" id="isProUserSender" class="form-checkbox h-5 w-5 text-blue-600 rounded">
-        <span class="ml-2 text-gray-700">Simulate Pro User</span>
-      </label>
-    </div>
-  </div>
-
-  <!-- Trusted Contacts Management -->
-  <div class="bg-white p-4 rounded shadow">
-    <h2 class="text-xl font-semibold mb-3">Trusted Contacts</h2>
-    <input id="contactName" class="input-field" placeholder="Contact Name"/>
-    <input id="contactEmail" type="email" class="input-field" placeholder="Contact Email (for app)"/>
-    <input id="contactPhone" type="tel" class="input-field" placeholder="Contact Phone (for SMS fallback)"/>
-    <!-- Removed: <select id="contactMethod" class="input-field"> -->
-    <!--   <option value="app">App (Primary)</option> -->
-    <!--   <option value="sms">SMS (Primary)</option> -->
-    <!-- </select> -->
-    <div class="flex space-x-2 mt-2">
-      <button id="addContactBtn" class="button-primary bg-purple-500">Add Contact</button>
-      <button id="updateContactBtn" class="button-primary bg-orange-500 hidden">Save Changes</button>
-      <button id="cancelEditBtn" class="button-secondary hidden">Cancel Edit</button>
-    </div>
-    <div class="mt-4">
-      <h3 class="text-lg font-medium">Your Contacts:</h3>
-      <ul id="contactsList" class="list-disc pl-5 text-sm">
-        <!-- Contacts will be loaded here -->
-      </ul>
-    </div>
-  </div>
-
-  <!-- Message Sending -->
-  <div class="bg-white p-4 rounded shadow">
-    <h2 class="text-xl font-semibold mb-3">Send Message</h2>
-    <select id="recipientContact" class="input-field">
-      <option value="">Select a Contact</option>
-      <!-- Contacts will be populated here dynamically -->
-    </select>
-    <input id="messageContent" class="input-field" placeholder="Message content"/>
-    <input id="testRendezvousIdSender" class="input-field" placeholder="Test Rendezvous ID (e.g., 'test-rdv-123')" value="test-rdv-123"/>
-    <div class="mt-2">
-      <label class="inline-flex items-center mr-4">
-        <input type="radio" name="deliverySim" value="success" checked class="form-radio h-4 w-4 text-green-600">
-        <span class="ml-2 text-gray-700">Simulate In-App Success</span>
-      </label>
-      <label class="inline-flex items-center">
-        <input type="radio" name="deliverySim" value="failure" class="form-radio h-4 w-4 text-red-600">
-        <span class="ml-2 text-gray-700">Simulate In-App Failure (for fallback)</span>
-      </label>
-    </div>
-    <button id="sendMessageBtn" class="button-primary bg-green-600 mt-4">Send Message</button>
-  </div>
-
-  <!-- Monitor Log (Sender) -->
-  <div>
-    <h2 class="text-lg font-semibold mb-2">Sender Monitor Log</h2>
-    <div id="monitorLogSender" class="log-area bg-black text-white p-4 h-64 overflow-y-scroll text-sm rounded-lg shadow-inner">Monitoring log...</div>
-  </div>
-
-  <!-- Twilio SMS Log (Conceptual) -->
-  <div>
-    <h2 class="text-lg font-semibold mb-2">Twilio SMS Outbound Log (Conceptual)</h2>
-    <div id="twilioSmsLog" class="log-area bg-purple-900 text-white p-4 h-64 overflow-y-scroll text-sm rounded-lg shadow-inner">Simulated Twilio activity...</div>
-  </div>
-
-  <!-- Upgrade Prompt Modal -->
-  <div id="upgradeModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white p-6 rounded-lg shadow-xl text-center">
-      <h3 class="text-xl font-bold mb-4">Upgrade Required!</h3>
-      <p class="mb-6">Free users can only add contacts who have the app (no SMS contacts). Please upgrade to Pro for SMS contact support.</p>
-      <button onclick="document.getElementById('upgradeModal')?.classList.add('hidden')" class="button-primary bg-blue-500">Got It!</button>
-    </div>
-  </div>
-
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getFirestore, collection, addDoc, updateDoc, doc, query, where, getDocs, onSnapshot, Timestamp, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"; // Added deleteDoc
-
-    // Firebase configuration provided by the Canvas environment
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-    const defaultFirebaseConfig = {
-      apiKey: "AIzaSyAV52Ads-ckhKuGsKvHoYYTrDIqBHMHusQ",
-      authDomain: "meetsafe-clean-core.firebaseapp.com",
-      projectId: "meetsafe-clean-core",
-      storageBucket: "meetsafe-clean-core.firebasestorage.app",
-      messagingSenderId: "970833854934",
-      appId: "1:970833854934:web:5ae847503baa2c6c552477",
-      measurementId: "G-E6LBFE2SEB"
-    };
-    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : defaultFirebaseConfig;
-
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-
-    let currentUserSender = null;
-    let currentUserIdSender = null;
-    let isProUserSender = false;
-    let userContactsSender = [];
-    let editingContactId = null; // New state variable to track which contact is being edited
-    let unsubscribeSentInvites = null; // New: To store the unsubscribe function for sent invites listener
-
-    // Map to track message counts for free users per contact (identifier -> count)
-    // This map will no longer be used for app-to-app limits, but kept for potential future use or other limits.
-    const freeUserMessageCounts = new Map();
-
-    // --- Log Functions ---
-    const logToMonitor = (msg, type = "info", targetLogId = "monitorLogSender") => {
-      const el = document.getElementById(targetLogId);
-      if (el) { // Add null check for the element
-        const time = new Date().toLocaleTimeString("en-AU", { timeZone: "Australia/Brisbane" });
-        const line = document.createElement("div");
-        let colorClass = "text-gray-300"; // Default
-        if (type === "success") colorClass = "text-green-400";
-        else if (type === "error") colorClass = "text-red-400";
-        else if (type === "warning") colorClass = "text-yellow-400";
-        else if (type === "invite") colorClass = "text-purple-300"; // New type for invites
-
-        line.innerHTML = `<span class="${colorClass}">[${time}] ${msg}</span>`;
-        el.appendChild(line);
-        el.scrollTop = el.scrollHeight;
-      }
-    };
-
-    // --- Authentication Logic (Sender) ---
-    const initialAuthSender = async () => {
-      try {
-        if (typeof __initial_auth_token !== 'undefined') {
-          await signInWithCustomToken(auth, __initial_auth_token);
-          logToMonitor("Sender: Signed in with custom token.", "success", "monitorLogSender");
-        } else {
-          await signInAnonymously(auth);
-          logToMonitor("Sender: Signed in anonymously.", "info", "monitorLogSender");
-        }
-      } catch (error) {
-        logToMonitor(`Sender: Initial authentication error: ${error.message}`, "error", "monitorLogSender");
-      }
-    };
-    initialAuthSender();
-
-    document.getElementById("signUpBtnSender")?.addEventListener("click", async () => {
-      const emailInput = document.getElementById("authEmailSender");
-      const pwInput = document.getElementById("authPasswordSender");
-      const email = emailInput?.value || '';
-      const pw = pwInput?.value || '';
-      if (!email || !pw) {
-        logToMonitor("Sender: Email and password cannot be empty for sign up.", "warning", "monitorLogSender");
-        return;
-      }
-      try {
-        await createUserWithEmailAndPassword(auth, email, pw);
-        logToMonitor("Sender: User signed up successfully!", "success", "monitorLogSender");
-      } catch (error) {
-        logToMonitor(`Sender: Sign up error: ${error.message}`, "error", "monitorLogSender");
-      }
-    });
-
-    document.getElementById("signInBtnSender")?.addEventListener("click", async () => {
-      const emailInput = document.getElementById("authEmailSender");
-      const pwInput = document.getElementById("authPasswordSender");
-      const email = emailInput?.value || '';
-      const pw = pwInput?.value || '';
-      if (!email || !pw) {
-        logToMonitor("Sender: Email and password cannot be empty for sign in.", "warning", "monitorLogSender");
-        return;
-      }
-      try {
-        await signInWithEmailAndPassword(auth, email, pw);
-        logToMonitor("Sender: User signed in successfully!", "success", "monitorLogSender");
-      } catch (error) {
-        logToMonitor(`Sender: Sign in error: ${error.message}`, "error", "monitorLogSender");
-      }
-    });
-
-    document.getElementById("signOutBtnSender")?.addEventListener("click", async () => {
-      try {
-        await signOut(auth); // Sign out the current user
-        logToMonitor("Sender: User signed out.", "info", "monitorLogSender");
-        currentUserSender = null;
-        currentUserIdSender = null;
-        userContactsSender = [];
-        renderContacts();
-        populateRecipientDropdown();
-        freeUserMessageCounts.clear();
-        editingContactId = null; // Clear edit state on sign out
-        resetContactForm();
-        if (unsubscribeSentInvites) { // New: Unsubscribe from sent invites
-          unsubscribeSentInvites();
-          unsubscribeSentInvites = null;
-        }
-      } catch (error) {
-        logToMonitor(`Sender: Sign out error: ${error.message}`, "error", "monitorLogSender");
-      }
-    });
-
-    onAuthStateChanged(auth, (user) => {
-      currentUserSender = user || null;
-      currentUserIdSender = user?.uid || null;
-      const currentUserDisplayEl = document.getElementById("currentUserDisplaySender");
-      const currentUidDisplayEl = document.getElementById("currentUidDisplaySender");
-
-      if (currentUserDisplayEl) {
-        currentUserDisplayEl.textContent = user?.email || "Not authenticated";
-      }
-      if (currentUidDisplayEl) {
-        currentUidDisplayEl.textContent = currentUserIdSender || "N/A";
-      }
-
-      if (currentUserSender) {
-        logToMonitor(`Sender: Authenticated as: ${currentUserSender.email || 'Anonymous'} (UID: ${currentUserSender.uid})`, "info", "monitorLogSender");
-        if (currentUserIdSender) {
-          const contactsQuery = query(collection(db, `artifacts/${appId}/users/${currentUserIdSender}/contacts`));
-          onSnapshot(contactsQuery, (snapshot) => {
-            userContactsSender = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            renderContacts();
-            populateRecipientDropdown();
-            logToMonitor("Sender: Contacts updated.", "info", "monitorLogSender");
-          }, (error) => {
-            logToMonitor(`Sender: Error fetching contacts: ${error.message}`, "error", "monitorLogSender");
-          });
-          // New: Start listening for changes to sent invites
-          listenForSentInvites(currentUserIdSender);
-        }
-      } else {
-        logToMonitor("Sender: Not authenticated.", "info", "monitorLogSender");
-        if (unsubscribeSentInvites) { // New: Unsubscribe from sent invites
-          unsubscribeSentInvites();
-          unsubscribeSentInvites = null;
-        }
-      }
-    });
-
-    document.getElementById("isProUserSender")?.addEventListener("change", (e) => {
-      isProUserSender = e.target.checked;
-      logToMonitor(`Sender: Simulating Pro User: ${isProUserSender}`, "info", "monitorLogSender");
-      // Reset form and edit state when Pro status changes, as rules might change
-      editingContactId = null;
-      resetContactForm();
-    });
-
-    // --- Contact Management Logic ---
-    const contactNameInput = document.getElementById("contactName");
-    const contactEmailInput = document.getElementById("contactEmail");
-    const contactPhoneInput = document.getElementById("contactPhone");
-    // Removed: const contactMethodSelect = document.getElementById("contactMethod");
-    const addContactBtn = document.getElementById("addContactBtn");
-    const updateContactBtn = document.getElementById("updateContactBtn");
-    const cancelEditBtn = document.getElementById("cancelEditBtn");
-
-    const resetContactForm = () => {
-        if (contactNameInput) contactNameInput.value = "";
-        if (contactEmailInput) contactEmailInput.value = "";
-        if (contactPhoneInput) contactPhoneInput.value = "";
-        // Removed: if (contactMethodSelect) contactMethodSelect.value = "app"; // Default to app
-        addContactBtn?.classList.remove("hidden");
-        updateContactBtn?.classList.add("hidden");
-        cancelEditBtn?.classList.add("hidden");
-        editingContactId = null;
-    };
-
-    addContactBtn?.addEventListener("click", async () => {
-      if (!currentUserSender || !currentUserIdSender) {
-        logToMonitor("Sender: Please sign in to add contacts.", "warning", "monitorLogSender");
-        return;
-      }
-      
-      const name = contactNameInput?.value.trim() || '';
-      const email = contactEmailInput?.value.trim() || '';
-      const phone = contactPhoneInput?.value.trim() || '';
-      // Dynamically determine method based on provided identifiers
-      let method = "app"; // Default to app if email is provided
-      if (!email && phone) { // If no email but phone is provided, it's an SMS contact
-          method = "sms";
-      } else if (!email && !phone) { // If neither, it's an invalid contact
-          logToMonitor("Sender: Contact must have at least an email or a phone number.", "warning", "monitorLogSender");
-          return;
-      }
-
-
-      // NEW LIMIT: Free users can only add contacts with 'app' method (i.e., must provide an email)
-      if (!isProUserSender && method === "sms") { // If free user and method determined to be SMS
-        const upgradeModalEl = document.getElementById("upgradeModal");
-        if (upgradeModalEl) {
-          upgradeModalEl.classList.remove("hidden");
-          const upgradeModalP = upgradeModalEl.querySelector('p');
-          if (upgradeModalP) {
-            upgradeModalP.textContent = "Free users can only add contacts for in-app communication (must provide an email). Please upgrade to Pro for SMS-only contact support.";
-          }
-        }
-        logToMonitor("Sender: Free users can only add contacts for in-app communication (must provide an email).", "warning", "monitorLogSender");
-        return;
-      }
-
-      try {
-        // First, add the contact to the sender's private contacts list
-        const newContactRef = collection(db, `artifacts/${appId}/users/${currentUserIdSender}/contacts`);
-        const docRef = await addDoc(newContactRef, { // Store inviteStatus
-          name,
-          email: email || null, // Store email, null if empty
-          phoneNumber: phone || null, // Store phone, null if empty
-          method, // Dynamically determined method
-          createdAt: Timestamp.now(),
-          userId: currentUserIdSender,
-          inviteStatus: "pending" // Initial invite status
-        });
-        logToMonitor(`Sender: Contact '${name}' added successfully to your list.`, "success", "monitorLogSender");
-        
-        // THEN, create an invite document in the publicInvites collection for the receiver to find
-        const publicInviteRef = collection(db, `artifacts/${appId}/publicInvites`);
-        await addDoc(publicInviteRef, {
-            senderUid: currentUserIdSender,
-            senderEmail: currentUserSender?.email || 'Anonymous Sender', // Sender's email for display on receiver side
-            recipientEmail: email, // The contact's email (receiver's email)
-            recipientPhone: phone || null, // The contact's phone (receiver's phone)
-            inviteStatus: "pending",
-            createdAt: Timestamp.now(),
-            contactDocId: docRef.id // Store reference to the sender's contact document
-        });
-        logToMonitor(`Sender: Created public invite for ${email || name} in publicInvites.`, "info", "monitorLogSender");
-
-
-        // Simulate sending invite/notification
-        if (method === "app") {
-            logToMonitor(`Sender: Simulated in-app invite sent to ${email || name}.`, "info", "monitorLogSender");
-            // In future, this would trigger a server-side call to send a real in-app notification
-        } else if (method === "sms") {
-            // For SMS contacts, even for Pro users, the primary invite is email.
-            // SMS fallback for invite would happen if email not confirmed.
-            logToMonitor(`Sender: Simulated email invite sent to ${email || name} (for SMS contact).`, "info", "monitorLogSender");
-            // In future, this would trigger a server-side call to send a real email invite
-        }
-
-        resetContactForm(); // Reset form after adding
-      } catch (error) {
-        logToMonitor(`Sender: Error adding contact: ${error.message}`, "error", "monitorLogSender");
-      }
-    });
-
-    updateContactBtn?.addEventListener("click", async () => {
-        if (!currentUserSender || !currentUserIdSender || !editingContactId) {
-            logToMonitor("Sender: Not in edit mode or not signed in.", "warning", "monitorLogSender");
-            return;
-        }
-
-        const name = contactNameInput?.value.trim() || '';
-        const email = contactEmailInput?.value.trim() || '';
-        const phone = contactPhoneInput?.value.trim() || '';
-        // Dynamically determine method for update based on provided identifiers
-        let method = "app";
-        if (!email && phone) {
-            method = "sms";
-        } else if (!email && !phone) {
-            logToMonitor("Sender: Contact must have at least an email or a phone number.", "warning", "monitorLogSender");
-            return;
-        }
-
-        // NEW LIMIT: Free users can only add/edit contacts with 'app' method
-        if (!isProUserSender && method === "sms") {
-            const upgradeModalEl = document.getElementById("upgradeModal");
-            if (upgradeModalEl) {
-                upgradeModalEl.classList.remove("hidden");
-                const upgradeModalP = upgradeModalEl.querySelector('p');
-                if (upgradeModalP) {
-                    upgradeModalP.textContent = "Free users can only edit contacts with 'App' method (no SMS contacts). Please upgrade to Pro for SMS contact support.";
-                }
-            }
-            logToMonitor("Sender: Free users can only edit contacts with 'App' method (no SMS contacts).", "warning", "monitorLogSender");
-            return;
-        }
-
-        try {
-            const contactRef = doc(db, `artifacts/${appId}/users/${currentUserIdSender}/contacts/${editingContactId}`);
-            await updateDoc(contactRef, {
-                name,
-                email: email || null,
-                phoneNumber: phone || null,
-                method
-                // inviteStatus is not updated on edit unless explicitly intended
-            });
-            logToMonitor(`Sender: Contact '${name}' updated successfully.`, "success", "monitorLogSender");
-
-            // If the method was changed from app to sms for a Pro user, or vice-versa,
-            // or if the email changed, you might need to update the public invite document too.
-            // For simplicity in this console, we're not updating the public invite on contact edit.
-            // In a real app, this would be handled by server-side logic (e.g., Cloud Function on contact update).
-
-            resetContactForm(); // Reset form after updating
-        } catch (error) {
-            logToMonitor(`Sender: Error updating contact: ${error.message}`, "error", "monitorLogSender");
-        }
-    });
-
-    cancelEditBtn?.addEventListener("click", () => {
-        logToMonitor("Sender: Edit cancelled.", "info", "monitorLogSender");
-        resetContactForm();
-    });
-
-    const renderContacts = () => {
-      const listEl = document.getElementById("contactsList");
-      if (!listEl) return; // Null check for contactsList
-      listEl.innerHTML = "";
-      if (userContactsSender.length === 0) {
-        listEl.innerHTML = "<li>No contacts added yet.</li>";
-        return;
-      }
-      userContactsSender.forEach(contact => {
-        const li = document.createElement("li");
-        let identifierDisplay = [];
-        if (contact.email) identifierDisplay.push(`Email: ${contact.email}`);
-        if (contact.phoneNumber) identifierDisplay.push(`Phone: ${contact.phoneNumber}`);
-        li.innerHTML = `
-          <span>${contact.name} (${identifierDisplay.join(', ')}) [Determined: ${contact.method}] (Invite: ${contact.inviteStatus || 'N/A'})</span>
-          <div class="contact-actions">
-            <button class="edit-btn" data-contact-id="${contact.id}">Edit</button>
-            <button class="delete-btn" data-contact-id="${contact.id}">Delete</button>
-          </div>
-        `;
-        listEl.appendChild(li);
-      });
-
-      // Add event listeners for edit and delete buttons
-      document.querySelectorAll('.edit-btn').forEach(button => {
-          button.addEventListener('click', (e) => {
-              const contactId = e.target.dataset.contactId;
-              const contactToEdit = userContactsSender.find(c => c.id === contactId);
-              if (contactToEdit) {
-                  editingContactId = contactId;
-                  if (contactNameInput) contactNameInput.value = contactToEdit.name;
-                  if (contactEmailInput) contactEmailInput.value = contactToEdit.email || '';
-                  if (contactPhoneInput) contactPhoneInput.value = contactToEdit.phoneNumber || '';
-                  // Method is now determined, not selected, so no need to set select value
-                  // if (contactMethodSelect) contactMethodSelect.value = contactToEdit.method;
-
-                  addContactBtn?.classList.add("hidden");
-                  updateContactBtn?.classList.remove("hidden");
-                  cancelEditBtn?.classList.remove("hidden");
-                  logToMonitor(`Sender: Editing contact: ${contactToEdit.name}`, "info", "monitorLogSender");
-              }
-          });
-      });
-
-      document.querySelectorAll('.delete-btn').forEach(button => {
-          button.addEventListener('click', async (e) => {
-              const contactId = e.target.dataset.contactId;
-              if (!currentUserSender || !currentUserIdSender) {
-                  logToMonitor("Sender: Not signed in to delete contacts.", "warning", "monitorLogSender");
-                  return;
-              }
-              if (confirm(`Are you sure you want to delete this contact?`)) { // Using confirm for simplicity in console
-                  try {
-                      await deleteDoc(doc(db, `artifacts/${appId}/users/${currentUserIdSender}/contacts/${contactId}`));
-                      logToMonitor(`Sender: Contact deleted successfully.`, "success", "monitorLogSender");
-                      resetContactForm(); // Reset form in case deleted contact was being edited
-                  } catch (error) {
-                      logToMonitor(`Sender: Error deleting contact: ${error.message}`, "error", "monitorLogSender");
-                  }
-              }
-          });
-      });
-    };
-
-    const populateRecipientDropdown = () => {
-      const selectEl = document.getElementById("recipientContact");
-      if (!selectEl) return; // Null check for recipientContact
-      selectEl.innerHTML = '<option value="">Select a Contact</option>';
-      userContactsSender.forEach(contact => {
-        const option = document.createElement("option");
-        option.value = contact.id;
-        let identifierDisplay = [];
-        if (contact.email) identifierDisplay.push(contact.email);
-        if (contact.phoneNumber) identifierDisplay.push(contact.phoneNumber);
-        option.textContent = `${contact.name} (${identifierDisplay.join(' / ')})`;
-        selectEl.appendChild(option);
-      });
-    };
-
-    // --- Messaging Logic ---
-    document.getElementById("sendMessageBtn")?.addEventListener("click", async () => {
-      if (!currentUserSender || !currentUserIdSender) {
-        logToMonitor("Sender: Please sign in to send messages.", "warning", "monitorLogSender");
-        return;
-      }
-
-      const recipientContactSelect = document.getElementById("recipientContact");
-      const messageContentInput = document.getElementById("messageContent");
-      const testRendezvousIdInput = document.getElementById("testRendezvousIdSender");
-      const deliverySimRadio = document.querySelector('input[name="deliverySim"]:checked');
-
-      const selectedContactId = recipientContactSelect?.value || '';
-      const messageContent = messageContentInput?.value.trim() || '';
-      const testRendezvousId = testRendezvousIdInput?.value.trim() || '';
-      const simulateInAppSuccess = deliverySimRadio?.value === "success";
-
-      if (!selectedContactId || !messageContent || !testRendezvousId) {
-        logToMonitor("Sender: Please select a contact, enter message content, and a test rendezvous ID.", "warning", "monitorLogSender");
-        return;
-      }
-
-      const recipientContact = userContactsSender.find(c => c.id === selectedContactId);
-      if (!recipientContact) {
-        logToMonitor("Sender: Selected contact not found.", "error", "monitorLogSender");
-        return;
-      }
-
-      // Determine the 'to' identifier based on the primary method stored in contact
-      let toIdentifier = null;
-      if (recipientContact.method === "app") {
-          toIdentifier = recipientContact.email;
-      } else if (recipientContact.method === "sms") {
-          toIdentifier = recipientContact.phoneNumber;
-      }
-
-      if (!toIdentifier) {
-          logToMonitor(`Sender: Cannot send message. Contact '${recipientContact.name}' does not have a valid ${recipientContact.method} identifier.`, "error", "monitorLogSender");
-          return;
-      }
-
-      // NEW CONSTRAINT: Free user can only send to one unique app contact per Rendezvous
-      // AND for free users, SMS fallback is allowed only for this one app contact if in-app fails.
-      if (!isProUserSender) {
-          // If the primary method of the selected contact is SMS, block sending
-          if (recipientContact.method === "sms") {
-              const upgradeModalEl = document.getElementById("upgradeModal");
-              if (upgradeModalEl) {
-                  upgradeModalEl.classList.remove("hidden");
-                  const upgradeModalP = upgradeModalEl.querySelector('p');
-                  if (upgradeModalP) {
-                      upgradeModalP.textContent = "Free users can only send messages to contacts who have the app (no SMS messages). Please upgrade to Pro for SMS messaging.";
-                  }
-              }
-              logToMonitor("Sender: Free users can only send messages to app contacts.", "warning", "monitorLogSender");
-              return;
-          }
-
-          // Query for any existing app messages sent by this user within this rendezvous
-          const messagesSentByThisUserInRendezvousQuery = query(
-              collection(db, `artifacts/${appId}/messages/${testRendezvousId}/messages`),
-              where("from", "==", currentUserIdSender),
-              where("method", "==", "app")
-          );
-
-          const existingMessagesSnap = await getDocs(messagesSentByThisUserInRendezvousQuery);
-          let existingRecipientEmail = null;
-
-          if (!existingMessagesSnap.empty) {
-              // Get the recipient email from the first existing app message by this sender in this rendezvous
-              existingRecipientEmail = existingMessagesSnap.docs[0].data().recipientEmail;
-
-              // If a message already exists for this rendezvous with a different app recipient
-              if (existingRecipientEmail && existingRecipientEmail !== recipientContact.email) {
-                  const upgradeModalEl = document.getElementById("upgradeModal");
-                  if (upgradeModalEl) {
-                      upgradeModalEl.classList.remove("hidden");
-                      const upgradeModalP = upgradeModalEl.querySelector('p');
-                      if (upgradeModalP) {
-                          upgradeModalP.textContent = `Free users can only send messages to one unique app contact per rendezvous. This rendezvous is already associated with ${existingRecipientEmail}.`;
-                      }
-                  }
-                  logToMonitor(`Sender: Free user limit: This rendezvous is already associated with ${existingRecipientEmail}.`, "warning", "monitorLogSender");
-                  return;
-              }
-          }
-      }
-
-      try {
-        // Create a new subcollection for messages under the rendezvous ID
-        const messagesCollectionRef = collection(db, `artifacts/${appId}/messages/${testRendezvousId}/messages`);
-        const messageRef = await addDoc(messagesCollectionRef, {
-          to: toIdentifier, // Email for app, Phone for SMS
-          from: currentUserIdSender,
-          sentAt: Timestamp.now(),
-          delivered: false,
-          method: recipientContact.method,
-          fallback: "none",
-          acknowledged: false,
-          content: messageContent,
-          recipientEmail: recipientContact.email || null, // Store both for clarity
-          recipientPhone: recipientContact.phoneNumber || null // Store both for clarity
-        });
-        logToMonitor(`Sender: Message initiated to ${recipientContact.name} via ${recipientContact.method}. Message ID: ${messageRef.id}`, "info", "monitorLogSender");
-
-        if (recipientContact.method === "app") {
-          simulateInAppDelivery(messageRef, simulateInAppSuccess, recipientContact, testRendezvousId);
-        } else if (recipientContact.method === "sms") {
-          // If primary method is SMS, simulate direct SMS send (no in-app attempt first)
-          await updateDoc(messageRef, { delivered: true });
-          logToMonitor(`Sender: Direct SMS to ${recipientContact.name} simulated as sent.`, "success", "monitorLogSender");
-          // Trigger actual Twilio SMS if it's a direct SMS and a phone number exists
-          if (recipientContact.phoneNumber) {
-              sendTwilioSms(recipientContact.phoneNumber, messageContent, messageRef.id, "Direct SMS");
-          }
-        }
-
-      } catch (error) {
-        logToMonitor(`Sender: Error sending message: ${error.message}`, "error", "monitorLogSender");
-      }
-    });
-
-    const simulateInAppDelivery = (messageRef, success, recipientContact, rendezvousId) => {
-      const deliveryAttemptTimeout = 5000; // Simulate 5 seconds for initial delivery attempt
-      const fallbackCheckTimeout = 10000; // Check for fallback after 10 seconds (instead of 60s for faster testing)
-
-      let delivered = false;
-
-      // Simulate initial delivery attempt
-      setTimeout(async () => {
-        if (success) {
-          delivered = true;
-          await updateDoc(messageRef, { delivered: true });
-          logToMonitor(`Sender: In-app message to ${recipientContact.name} delivered successfully!`, "success", "monitorLogSender");
-        } else {
-          logToMonitor(`Sender: In-app message to ${recipientContact.name} failed to deliver immediately.`, "warning", "monitorLogSender");
-        }
-      }, deliveryAttemptTimeout);
-
-      // Check for fallback after `fallbackCheckTimeout` if not delivered
-      setTimeout(async () => {
-        if (!delivered) {
-          const messageSnap = await getDoc(messageRef);
-          const messageData = messageSnap.data();
-
-          if (!messageData.delivered && messageData.method === "app") {
-            logToMonitor(`Sender: In-app message to ${recipientContact.name} not confirmed delivered within ${fallbackCheckTimeout / 1000}s. Checking fallback...`, "warning", "monitorLogSender");
-
-            // MODIFIED: Free user now also gets SMS fallback for their one app contact
-            // The condition now checks if it's a Pro user OR if it's a Free user AND the contact has a phone number.
-            if (isProUserSender || (!isProUserSender && recipientContact.phoneNumber)) {
-              if (recipientContact.phoneNumber) { // Check if phone number is available for SMS fallback
-                 logToMonitor(`Sender: SMS fallback initiated for ${recipientContact.name}.`, "info", "monitorLogSender");
-                 // Trigger actual Twilio SMS
-                 sendTwilioSms(recipientContact.phoneNumber, messageData.content, messageRef.id, "Fallback SMS");
-                 await updateDoc(messageRef, { fallback: "sms", delivered: true }); // Mark delivered after fallback attempt
-                 logToMonitor(`Sender: SMS fallback to ${recipientContact.name}'s phone number triggered.`, "success", "monitorLogSender");
-              } else {
-                 logToMonitor(`Sender: Cannot fallback to SMS for ${recipientContact.name}: No phone number available.`, "warning", "monitorLogSender");
-              }
-            } else {
-              // This branch is now only for Free users who don't have a phone number for the contact
-              logToMonitor(`Sender: SMS fallback not available for Free User (${recipientContact.name}) without a phone number.`, "warning", "monitorLogSender");
-            }
-          }
-        }
-      }, fallbackCheckTimeout);
-    };
-
-    // --- Twilio SMS Function (Conceptual Client-Side) ---
-    // In a real application, this would be a fetch to your secure server-side proxy
-    const sendTwilioSms = async (toPhoneNumber, messageBody, messageId, type) => {
-        logToMonitor(`Twilio: Attempting to send ${type} to ${toPhoneNumber} for message ID: ${messageId}`, "info", "twilioSmsLog");
-        // IMPORTANT: Replace this with the actual URL of your server-side Twilio proxy.
-        // Your Twilio Account SID and Auth Token should be securely stored on your server-side proxy, NOT here.
-        const twilioProxyUrl = "http://127.0.0.1:5000/send-sms"; // This should be your proxy URL
-
-        if (twilioProxyUrl === "http://127.0.0.1:5000/send-sms" && !toPhoneNumber.includes('+')) {
-            logToMonitor("Twilio: Warning: Phone number might be invalid for real SMS. Ensure it includes country code (e.g., +61...).", "warning", "twilioSmsLog");
-        }
-
-
-        try {
-            const response = await fetch(twilioProxyUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    to: toPhoneNumber,
-                    body: messageBody,
-                    messageId: messageId // Pass message ID for server-side logging/tracking
-                }),
-            });
-
-            const result = await response.json();
-
-            if (response.ok) {
-                logToMonitor(`Twilio: ${type} sent successfully to ${toPhoneNumber}. Response: ${JSON.stringify(result)}`, "success", "twilioSmsLog");
-            } else {
-                logToMonitor(`Twilio: Failed to send ${type} to ${toPhoneNumber}. Error: ${result.error || response.statusText}`, "error", "twilioSmsLog");
-            }
-        } catch (error) {
-            logToMonitor(`Twilio: Network or unexpected error sending ${type} to ${toPhoneNumber}: ${error.message}`, "error", "twilioSmsLog");
-        }
     };
 
     // --- New Listener for Sent Invites (Sender Side) ---
-    const listenForSentInvites = (senderUid) => {
+    // Define this function BEFORE onAuthStateChanged calls it
+    function listenForSentInvites(senderUid) { // Changed to function declaration
         if (unsubscribeSentInvites) {
             unsubscribeSentInvites(); // Unsubscribe from previous listener if any
         }
 
         const sentInvitesQuery = query(
             collection(db, `artifacts/${appId}/publicInvites`),
-            where("senderUid", "==", senderUid),
-            where("inviteStatus", "in", ["accepted", "rejected"]) // Listen for status changes
+            where("senderUid", "==", senderUid)
+            // We listen for all changes now, and filter by status in the callback
+            // where("inviteStatus", "in", ["accepted", "rejected"]) // Removed this to listen for all changes
         );
 
         unsubscribeSentInvites = onSnapshot(sentInvitesQuery, (snapshot) => {
             snapshot.docChanges().forEach(change => {
                 const inviteData = change.doc.data();
                 const inviteId = change.doc.id;
+                
+                // Find the corresponding contact in the sender's local list
+                // We need to match by the contactDocId stored in the public invite,
+                // as that links back to the specific contact document in the sender's private list.
+                const contactIndex = userContactsSender.findIndex(contact => contact.id === inviteData.contactDocId);
 
-                if (change.type === "modified") {
-                    // Find the corresponding contact in the sender's local list
-                    const contactIndex = userContactsSender.findIndex(contact => contact.email === inviteData.recipientEmail);
-                    if (contactIndex > -1) {
-                        // Update the inviteStatus in the local list
-                        userContactsSender[contactIndex].inviteStatus = inviteData.inviteStatus;
-                        logToMonitor(`Sender: Invite for ${inviteData.recipientEmail} changed to: ${inviteData.inviteStatus}.`, "invite", "monitorLogSender");
-                        renderContacts(); // Re-render the contacts list to show the updated status
-                    }
+                if (contactIndex > -1) {
+                    // Update the inviteStatus in the local list
+                    userContactsSender[contactIndex].inviteStatus = inviteData.inviteStatus;
+                    logToMonitor(`Sender: Invite for ${inviteData.recipientEmail} changed to: ${inviteData.inviteStatus}.`, "invite", "monitorLogSender");
+                    renderContacts(); // Re-render the contacts list to show the updated status
                 }
             });
         }, (error) => {
             logToMonitor(`Sender: Error listening for sent invites: ${error.message}`, "error", "monitorLogSender");
         });
+    } // End of function declaration
+
+
+    // --- Authentication Logic (Sender) ---
+    const initialAuthSender = async () => {
+      try {
+        if (typeof __initial_auth_token !== 'undefined') {
+          await signInWithCustomToken(auth, __initial_auth_token);
+          logToMonitor("Sender: Signed in with custom token.", "success", "monitorLogSender");
+        } else {
+          await signInAnonymously(auth);
+          logToMonitor("Sender: Signed in anonymously.", "info", "monitorLogSender");
+        }
+      } catch (error) {
+        logToMonitor(`Sender: Initial authentication error: ${error.message}`, "error", "monitorLogSender");
+      }
+    };
+    initialAuthSender();
+
+    document.getElementById("signUpBtnSender")?.addEventListener("click", async () => {
+      const emailInput = document.getElementById("authEmailSender");
+      const pwInput = document.getElementById("authPasswordSender");
+      const email = emailInput?.value || '';
+      const pw = pwInput?.value || '';
+      if (!email || !pw) {
+        logToMonitor("Sender: Email and password cannot be empty for sign up.", "warning", "monitorLogSender");
+        return;
+      }
+      try {
+        await createUserWithEmailAndPassword(auth, email, pw);
+        logToMonitor("Sender: User signed up successfully!", "success", "monitorLogSender");
+      } catch (error) {
+        logToMonitor(`Sender: Sign up error: ${error.message}`, "error", "monitorLogSender");
+      }
+    });
+
+    document.getElementById("signInBtnSender")?.addEventListener("click", async () => {
+      const emailInput = document.getElementById("authEmailSender");
+      const pwInput = document.getElementById("authPasswordSender");
+      const email = emailInput?.value || '';
+      const pw = pwInput?.value || '';
+      if (!email || !pw) {
+        logToMonitor("Sender: Email and password cannot be empty for sign in.", "warning", "monitorLogSender");
+        return;
+      }
+      try {
+        await signInWithEmailAndPassword(auth, email, pw);
+        logToMonitor("Sender: User signed in successfully!", "success", "monitorLogSender");
+      } catch (error) {
+        logToMonitor(`Sender: Sign in error: ${error.message}`, "error", "monitorLogSender");
+      }
+    });
+
+    document.getElementById("signOutBtnSender")?.addEventListener("click", async () => {
+      try {
+        await signOut(auth); // Sign out the current user
+        logToMonitor("Sender: User signed out.", "info", "monitorLogSender");
+        currentUserSender = null;
+        currentUserIdSender = null;
+        userContactsSender = [];
+        renderContacts();
+        populateRecipientDropdown();
+        freeUserMessageCounts.clear();
+        editingContactId = null; // Clear edit state on sign out
+        resetContactForm();
+        if (unsubscribeSentInvites) { // New: Unsubscribe from sent invites
+          unsubscribeSentInvites();
+          unsubscribeSentInvites = null;
+        }
+      } catch (error) {
+        logToMonitor(`Sender: Sign out error: ${error.message}`, "error", "monitorLogSender");
+      }
+    });
+
+    onAuthStateChanged(auth, (user) => {
+      currentUserSender = user || null;
+      currentUserIdSender = user?.uid || null;
+      const currentUserDisplayEl = document.getElementById("currentUserDisplaySender");
+      const currentUidDisplayEl = document.getElementById("currentUidDisplaySender");
+
+      if (currentUserDisplayEl) {
+        currentUserDisplayEl.textContent = user?.email || "Not authenticated";
+      }
+      if (currentUidDisplayEl) {
+        currentUidDisplayEl.textContent = currentUserIdSender || "N/A";
+      }
+
+      if (currentUserSender) {
+        logToMonitor(`Sender: Authenticated as: ${currentUserSender.email || 'Anonymous'} (UID: ${currentUserSender.uid})`, "info", "monitorLogSender");
+        if (currentUserIdSender) {
+          const contactsQuery = query(collection(db, `artifacts/${appId}/users/${currentUserIdSender}/contacts`));
+          onSnapshot(contactsQuery, (snapshot) => {
+            userContactsSender = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            renderContacts();
+            populateRecipientDropdown();
+            logToMonitor("Sender: Contacts updated.", "info", "monitorLogSender");
+          }, (error) => {
+            logToMonitor(`Sender: Error fetching contacts: ${error.message}`, "error", "monitorLogSender");
+          });
+          // New: Start listening for changes to sent invites
+          listenForSentInvites(currentUserIdSender);
+        }
+      } else {
+        logToMonitor("Sender: Not authenticated.", "info", "monitorLogSender");
+        if (unsubscribeSentInvites) { // New: Unsubscribe from sent invites
+          unsubscribeSentInvites();
+          unsubscribeSentInvites = null;
+        }
+      }
+    });
+
+    document.getElementById("isProUserSender")?.addEventListener("change", (e) => {
+      isProUserSender = e.target.checked;
+      logToMonitor(`Sender: Simulating Pro User: ${isProUserSender}`, "info", "monitorLogSender");
+      // Reset form and edit state when Pro status changes, as rules might change
+      editingContactId = null;
+      resetContactForm();
+    });
+
+    // --- Contact Management Logic ---
+    const contactNameInput = document.getElementById("contactName");
+    const contactEmailInput = document.getElementById("contactEmail");
+    const contactPhoneInput = document.getElementById("contactPhone");
+    // Removed: const contactMethodSelect = document.getElementById("contactMethod");
+    const addContactBtn = document.getElementById("addContactBtn");
+    const updateContactBtn = document.getElementById("updateContactBtn");
+    const cancelEditBtn = document.getElementById("cancelEditBtn");
+
+    const resetContactForm = () => {
+        if (contactNameInput) contactNameInput.value = "";
+        if (contactEmailInput) contactEmailInput.value = "";
+        if (contactPhoneInput) contactPhoneInput.value = "";
+        // Removed: if (contactMethodSelect) contactMethodSelect.value = "app"; // Default to app
+        addContactBtn?.classList.remove("hidden");
+        updateContactBtn?.classList.add("hidden");
+        cancelEditBtn?.classList.add("hidden");
+        editingContactId = null;
+    };
+
+    addContactBtn?.addEventListener("click", async () => {
+      if (!currentUserSender || !currentUserIdSender) {
+        logToMonitor("Sender: Please sign in to add contacts.", "warning", "monitorLogSender");
+        return;
+      }
+      
+      const name = contactNameInput?.value.trim() || '';
+      const email = contactEmailInput?.value.trim() || '';
+      const phone = contactPhoneInput?.value.trim() || '';
+      // Dynamically determine method based on provided identifiers
+      let method = "app"; // Default to app if email is provided
+      if (!email && phone) { // If no email but phone is provided, it's an SMS contact
+          method = "sms";
+      } else if (!email && !phone) { // If neither, it's an invalid contact
+          logToMonitor("Sender: Contact must have at least an email or a phone number.", "warning", "monitorLogSender");
+          return;
+      }
+
+
+      // NEW LIMIT: Free users can only add contacts with 'app' method (i.e., must provide an email)
+      if (!isProUserSender && method === "sms") { // If free user and method determined to be SMS
+        const upgradeModalEl = document.getElementById("upgradeModal");
+        if (upgradeModalEl) {
+          upgradeModalEl.classList.remove("hidden");
+          const upgradeModalP = upgradeModalEl.querySelector('p');
+          if (upgradeModalP) {
+            upgradeModalP.textContent = "Free users can only add contacts for in-app communication (must provide an email). Please upgrade to Pro for SMS-only contact support.";
+          }
+        }
+        logToMonitor("Sender: Free users can only add contacts for in-app communication (must provide an email).", "warning", "monitorLogSender");
+        return;
+      }
+
+      try {
+        // First, add the contact to the sender's private contacts list
+        const newContactRef = collection(db, `artifacts/${appId}/users/${currentUserIdSender}/contacts`);
+        const docRef = await addDoc(newContactRef, { // Store inviteStatus
+          name,
+          email: email || null, // Store email, null if empty
+          phoneNumber: phone || null, // Store phone, null if empty
+          method, // Dynamically determined method
+          createdAt: Timestamp.now(),
+          userId: currentUserIdSender,
+          inviteStatus: "pending" // Initial invite status
+        });
+        logToMonitor(`Sender: Contact '${name}' added successfully to your list.`, "success", "monitorLogSender");
+        
+        // THEN, create an invite document in the publicInvites collection for the receiver to find
+        const publicInviteRef = collection(db, `artifacts/${appId}/publicInvites`);
+        await addDoc(publicInviteRef, {
+            senderUid: currentUserIdSender,
+            senderEmail: currentUserSender?.email || 'Anonymous Sender', // Sender's email for display on receiver side
+            recipientEmail: email, // The contact's email (receiver's email)
+            recipientPhone: phone || null, // The contact's phone (receiver's phone)
+            inviteStatus: "pending",
+            createdAt: Timestamp.now(),
+            contactDocId: docRef.id // Store reference to the sender's contact document
+        });
+        logToMonitor(`Sender: Created public invite for ${email || name} in publicInvites.`, "info", "monitorLogSender");
+
+
+        // Simulate sending invite/notification
+        if (method === "app") {
+            logToMonitor(`Sender: Simulated in-app invite sent to ${email || name}.`, "info", "monitorLogSender");
+            // In future, this would trigger a server-side call to send a real in-app notification
+        } else if (method === "sms") {
+            // For SMS contacts, even for Pro users, the primary invite is email.
+            // SMS fallback for invite would happen if email not confirmed.
+            logToMonitor(`Sender: Simulated email invite sent to ${email || name} (for SMS contact).`, "info", "monitorLogSender");
+            // In future, this would trigger a server-side call to send a real email invite
+        }
+
+        resetContactForm(); // Reset form after adding
+      } catch (error) {
+        logToMonitor(`Sender: Error adding contact: ${error.message}`, "error", "monitorLogSender");
+      }
+    });
+
+    updateContactBtn?.addEventListener("click", async () => {
+        if (!currentUserSender || !currentUserIdSender || !editingContactId) {
+            logToMonitor("Sender: Not in edit mode or not signed in.", "warning", "monitorLogSender");
+            return;
+        }
+
+        const name = contactNameInput?.value.trim() || '';
+        const email = contactEmailInput?.value.trim() || '';
+        const phone = contactPhoneInput?.value.trim() || '';
+        // Dynamically determine method for update based on provided identifiers
+        let method = "app";
+        if (!email && phone) {
+            method = "sms";
+        } else if (!email && !phone) {
+            logToMonitor("Sender: Contact must have at least an email or a phone number.", "warning", "monitorLogSender");
+            return;
+        }
+
+        // NEW LIMIT: Free users can only add/edit contacts with 'app' method
+        if (!isProUserSender && method === "sms") {
+            const upgradeModalEl = document.getElementById("upgradeModal");
+            if (upgradeModalEl) {
+                upgradeModalEl.classList.remove("hidden");
+                const upgradeModalP = upgradeModalEl.querySelector('p');
+                if (upgradeModalP) {
+                    upgradeModalP.textContent = "Free users can only edit contacts with 'App' method (no SMS contacts). Please upgrade to Pro for SMS contact support.";
+                }
+            }
+            logToMonitor("Sender: Free users can only edit contacts with 'App' method (no SMS contacts).", "warning", "monitorLogSender");
+            return;
+        }
+
+        try {
+            const contactRef = doc(db, `artifacts/${appId}/users/${currentUserIdSender}/contacts/${editingContactId}`);
+            await updateDoc(contactRef, {
+                name,
+                email: email || null,
+                phoneNumber: phone || null,
+                method
+                // inviteStatus is not updated on edit unless explicitly intended
+            });
+            logToMonitor(`Sender: Contact '${name}' updated successfully.`, "success", "monitorLogSender");
+
+            // If the method was changed from app to sms for a Pro user, or vice-versa,
+            // or if the email changed, you might need to update the public invite document too.
+            // For simplicity in this console, we're not updating the public invite on contact edit.
+            // In a real app, this would be handled by server-side logic (e.g., Cloud Function on contact update).
+
+            resetContactForm(); // Reset form after updating
+        } catch (error) {
+            logToMonitor(`Sender: Error updating contact: ${error.message}`, "error", "monitorLogSender");
+        }
+    });
+
+    cancelEditBtn?.addEventListener("click", () => {
+        logToMonitor("Sender: Edit cancelled.", "info", "monitorLogSender");
+        resetContactForm();
+    });
+
+    const renderContacts = () => {
+      const listEl = document.getElementById("contactsList");
+      if (!listEl) return; // Null check for contactsList
+      listEl.innerHTML = "";
+      if (userContactsSender.length === 0) {
+        listEl.innerHTML = "<li>No contacts added yet.</li>";
+        return;
+      }
+      userContactsSender.forEach(contact => {
+        const li = document.createElement("li");
+        let identifierDisplay = [];
+        if (contact.email) identifierDisplay.push(`Email: ${contact.email}`);
+        if (contact.phoneNumber) identifierDisplay.push(`Phone: ${contact.phoneNumber}`);
+        li.innerHTML = `
+          <span>${contact.name} (${identifierDisplay.join(', ')}) [Determined: ${contact.method}] (Invite: ${contact.inviteStatus || 'N/A'})</span>
+          <div class="contact-actions">
+            <button class="edit-btn" data-contact-id="${contact.id}">Edit</button>
+            <button class="delete-btn" data-contact-id="${contact.id}">Delete</button>
+          </div>
+        `;
+        listEl.appendChild(li);
+      });
+
+      // Add event listeners for edit and delete buttons
+      document.querySelectorAll('.edit-btn').forEach(button => {
+          button.addEventListener('click', (e) => {
+              const contactId = e.target.dataset.contactId;
+              const contactToEdit = userContactsSender.find(c => c.id === contactId);
+              if (contactToEdit) {
+                  editingContactId = contactId;
+                  if (contactNameInput) contactNameInput.value = contactToEdit.name;
+                  if (contactEmailInput) contactEmailInput.value = contactToEdit.email || '';
+                  if (contactPhoneInput) contactPhoneInput.value = contactToEdit.phoneNumber || '';
+                  // Method is now determined, not selected, so no need to set select value
+                  // if (contactMethodSelect) contactMethodSelect.value = contactToEdit.method;
+
+                  addContactBtn?.classList.add("hidden");
+                  updateContactBtn?.classList.remove("hidden");
+                  cancelEditBtn?.classList.remove("hidden");
+                  logToMonitor(`Sender: Editing contact: ${contactToEdit.name}`, "info", "monitorLogSender");
+              }
+          });
+      });
+
+      document.querySelectorAll('.delete-btn').forEach(button => {
+          button.addEventListener('click', async (e) => {
+              const contactId = e.target.dataset.contactId;
+              if (!currentUserSender || !currentUserIdSender) {
+                  logToMonitor("Sender: Not signed in to delete contacts.", "warning", "monitorLogSender");
+                  return;
+              }
+              if (confirm(`Are you sure you want to delete this contact?`)) { // Using confirm for simplicity in console
+                  try {
+                      await deleteDoc(doc(db, `artifacts/${appId}/users/${currentUserIdSender}/contacts/${contactId}`));
+                      logToMonitor(`Sender: Contact deleted successfully.`, "success", "monitorLogSender");
+                      resetContactForm(); // Reset form in case deleted contact was being edited
+                  } catch (error) {
+                      logToMonitor(`Sender: Error deleting contact: ${error.message}`, "error", "monitorLogSender");
+                  }
+              }
+          });
+      });
+    };
+
+    const populateRecipientDropdown = () => {
+      const selectEl = document.getElementById("recipientContact");
+      if (!selectEl) return; // Null check for recipientContact
+      selectEl.innerHTML = '<option value="">Select a Contact</option>';
+      userContactsSender.forEach(contact => {
+        const option = document.createElement("option");
+        option.value = contact.id;
+        let identifierDisplay = [];
+        if (contact.email) identifierDisplay.push(contact.email);
+        if (contact.phoneNumber) identifierDisplay.push(contact.phoneNumber);
+        option.textContent = `${contact.name} (${identifierDisplay.join(' / ')})`;
+        selectEl.appendChild(option);
+      });
+    };
+
+    // --- Messaging Logic ---
+    document.getElementById("sendMessageBtn")?.addEventListener("click", async () => {
+      if (!currentUserSender || !currentUserIdSender) {
+        logToMonitor("Sender: Please sign in to send messages.", "warning", "monitorLogSender");
+        return;
+      }
+
+      const recipientContactSelect = document.getElementById("recipientContact");
+      const messageContentInput = document.getElementById("messageContent");
+      const testRendezvousIdInput = document.getElementById("testRendezvousIdSender");
+      const deliverySimRadio = document.querySelector('input[name="deliverySim"]:checked');
+
+      const selectedContactId = recipientContactSelect?.value || '';
+      const messageContent = messageContentInput?.value.trim() || '';
+      const testRendezvousId = testRendezvousIdInput?.value.trim() || '';
+      const simulateInAppSuccess = deliverySimRadio?.value === "success";
+
+      if (!selectedContactId || !messageContent || !testRendezvousId) {
+        logToMonitor("Sender: Please select a contact, enter message content, and a test rendezvous ID.", "warning", "monitorLogSender");
+        return;
+      }
+
+      const recipientContact = userContactsSender.find(c => c.id === selectedContactId);
+      if (!recipientContact) {
+        logToMonitor("Sender: Selected contact not found.", "error", "monitorLogSender");
+        return;
+      }
+
+      // Determine the 'to' identifier based on the primary method stored in contact
+      let toIdentifier = null;
+      if (recipientContact.method === "app") {
+          toIdentifier = recipientContact.email;
+      } else if (recipientContact.method === "sms") {
+          toIdentifier = recipientContact.phoneNumber;
+      }
+
+      if (!toIdentifier) {
+          logToMonitor(`Sender: Cannot send message. Contact '${recipientContact.name}' does not have a valid ${recipientContact.method} identifier.`, "error", "monitorLogSender");
+          return;
+      }
+
+      // NEW CONSTRAINT: Free user can only send to one unique app contact per Rendezvous
+      // AND for free users, SMS fallback is allowed only for this one app contact if in-app fails.
+      if (!isProUserSender) {
+          // If the primary method of the selected contact is SMS, block sending
+          if (recipientContact.method === "sms") {
+              const upgradeModalEl = document.getElementById("upgradeModal");
+              if (upgradeModalEl) {
+                  upgradeModalEl.classList.remove("hidden");
+                  const upgradeModalP = upgradeModalEl.querySelector('p');
+                  if (upgradeModalP) {
+                      upgradeModalP.textContent = "Free users can only send messages to contacts who have the app (no SMS messages). Please upgrade to Pro for SMS messaging.";
+                  }
+              }
+              logToMonitor("Sender: Free users can only send messages to app contacts.", "warning", "monitorLogSender");
+              return;
+          }
+
+          // Query for any existing app messages sent by this user within this rendezvous
+          const messagesSentByThisUserInRendezvousQuery = query(
+              collection(db, `artifacts/${appId}/messages/${testRendezvousId}/messages`),
+              where("from", "==", currentUserIdSender),
+              where("method", "==", "app")
+          );
+
+          const existingMessagesSnap = await getDocs(messagesSentByThisUserInRendezvousQuery);
+          let existingRecipientEmail = null;
+
+          if (!existingMessagesSnap.empty) {
+              // Get the recipient email from the first existing app message by this sender in this rendezvous
+              existingRecipientEmail = existingMessagesSnap.docs[0].data().recipientEmail;
+
+              // If a message already exists for this rendezvous with a different app recipient
+              if (existingRecipientEmail && existingRecipientEmail !== recipientContact.email) {
+                  const upgradeModalEl = document.getElementById("upgradeModal");
+                  if (upgradeModalEl) {
+                      upgradeModalEl.classList.remove("hidden");
+                      const upgradeModalP = upgradeModalEl.querySelector('p');
+                      if (upgradeModalP) {
+                          upgradeModalP.textContent = `Free users can only send messages to one unique app contact per rendezvous. This rendezvous is already associated with ${existingRecipientEmail}.`;
+                      }
+                  }
+                  logToMonitor(`Sender: Free user limit: This rendezvous is already associated with ${existingRecipientEmail}.`, "warning", "monitorLogSender");
+                  return;
+              }
+          }
+      }
+
+      try {
+        // Create a new subcollection for messages under the rendezvous ID
+        const messagesCollectionRef = collection(db, `artifacts/${appId}/messages/${testRendezvousId}/messages`);
+        const messageRef = await addDoc(messagesCollectionRef, {
+          to: toIdentifier, // Email for app, Phone for SMS
+          from: currentUserIdSender,
+          sentAt: Timestamp.now(),
+          delivered: false,
+          method: recipientContact.method,
+          fallback: "none",
+          acknowledged: false,
+          content: messageContent,
+          recipientEmail: recipientContact.email || null, // Store both for clarity
+          recipientPhone: recipientContact.phoneNumber || null // Store both for clarity
+        });
+        logToMonitor(`Sender: Message initiated to ${recipientContact.name} via ${recipientContact.method}. Message ID: ${messageRef.id}`, "info", "monitorLogSender");
+
+        if (recipientContact.method === "app") {
+          simulateInAppDelivery(messageRef, simulateInAppSuccess, recipientContact, testRendezvousId);
+        } else if (recipientContact.method === "sms") {
+          // If primary method is SMS, simulate direct SMS send (no in-app attempt first)
+          await updateDoc(messageRef, { delivered: true });
+          logToMonitor(`Sender: Direct SMS to ${recipientContact.name} simulated as sent.`, "success", "monitorLogSender");
+          // Trigger actual Twilio SMS if it's a direct SMS and a phone number exists
+          if (recipientContact.phoneNumber) {
+              sendTwilioSms(recipientContact.phoneNumber, messageContent, messageRef.id, "Direct SMS");
+          }
+        }
+
+      } catch (error) {
+        logToMonitor(`Sender: Error sending message: ${error.message}`, "error", "monitorLogSender");
+      }
+    });
+
+    const simulateInAppDelivery = (messageRef, success, recipientContact, rendezvousId) => {
+      const deliveryAttemptTimeout = 5000; // Simulate 5 seconds for initial delivery attempt
+      const fallbackCheckTimeout = 10000; // Check for fallback after 10 seconds (instead of 60s for faster testing)
+
+      let delivered = false;
+
+      // Simulate initial delivery attempt
+      setTimeout(async () => {
+        if (success) {
+          delivered = true;
+          await updateDoc(messageRef, { delivered: true });
+          logToMonitor(`Sender: In-app message to ${recipientContact.name} delivered successfully!`, "success", "monitorLogSender");
+        } else {
+          logToMonitor(`Sender: In-app message to ${recipientContact.name} failed to deliver immediately.`, "warning", "monitorLogSender");
+        }
+      }, deliveryAttemptTimeout);
+
+      // Check for fallback after `fallbackCheckTimeout` if not delivered
+      setTimeout(async () => {
+        if (!delivered) {
+          const messageSnap = await getDoc(messageRef);
+          const messageData = messageSnap.data();
+
+          if (!messageData.delivered && messageData.method === "app") {
+            logToMonitor(`Sender: In-app message to ${recipientContact.name} not confirmed delivered within ${fallbackCheckTimeout / 1000}s. Checking fallback...`, "warning", "monitorLogSender");
+
+            // MODIFIED: Free user now also gets SMS fallback for their one app contact
+            // The condition now checks if it's a Pro user OR if it's a Free user AND the contact has a phone number.
+            if (isProUserSender || (!isProUserSender && recipientContact.phoneNumber)) {
+              if (recipientContact.phoneNumber) { // Check if phone number is available for SMS fallback
+                 logToMonitor(`Sender: SMS fallback initiated for ${recipientContact.name}.`, "info", "monitorLogSender");
+                 // Trigger actual Twilio SMS
+                 sendTwilioSms(recipientContact.phoneNumber, messageData.content, messageRef.id, "Fallback SMS");
+                 await updateDoc(messageRef, { fallback: "sms", delivered: true }); // Mark delivered after fallback attempt
+                 logToMonitor(`Sender: SMS fallback to ${recipientContact.name}'s phone number triggered.`, "success", "monitorLogSender");
+              } else {
+                 logToMonitor(`Sender: Cannot fallback to SMS for ${recipientContact.name}: No phone number available.`, "warning", "monitorLogSender");
+              }
+            } else {
+              // This branch is now only for Free users who don't have a phone number for the contact
+              logToMonitor(`Sender: SMS fallback not available for Free User (${recipientContact.name}) without a phone number.`, "warning", "monitorLogSender");
+            }
+          }
+        }
+      }, fallbackCheckTimeout);
+    };
+
+    // --- Twilio SMS Function (Conceptual Client-Side) ---
+    // In a real application, this would be a fetch to your secure server-side proxy
+    const sendTwilioSms = async (toPhoneNumber, messageBody, messageId, type) => {
+        logToMonitor(`Twilio: Attempting to send ${type} to ${toPhoneNumber} for message ID: ${messageId}`, "info", "twilioSmsLog");
+        // IMPORTANT: Replace this with the actual URL of your server-side Twilio proxy.
+        // Your Twilio Account SID and Auth Token should be securely stored on your server-side proxy, NOT here.
+        const twilioProxyUrl = "http://127.0.0.1:5000/send-sms"; // This should be your proxy URL
+
+        if (twilioProxyUrl === "http://127.0.0.1:5000/send-sms" && !toPhoneNumber.includes('+')) {
+            logToMonitor("Twilio: Warning: Phone number might be invalid for real SMS. Ensure it includes country code (e.g., +61...).", "warning", "twilioSmsLog");
+        }
+
+
+        try {
+            const response = await fetch(twilioProxyUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    to: toPhoneNumber,
+                    body: messageBody,
+                    messageId: messageId // Pass message ID for server-side logging/tracking
+                }),
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                logToMonitor(`Twilio: ${type} sent successfully to ${toPhoneNumber}. Response: ${JSON.stringify(result)}`, "success", "twilioSmsLog");
+            } else {
+                logToMonitor(`Twilio: Failed to send ${type} to ${toPhoneNumber}. Error: ${result.error || response.statusText}`, "error", "twilioSmsLog");
+            }
+        } catch (error) {
+            logToMonitor(`Twilio: Network or unexpected error sending ${type} to ${toPhoneNumber}: ${error.message}`, "error", "twilioSmsLog");
+        }
     };
   </script>
 </body>
