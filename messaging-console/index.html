@@ -334,6 +334,7 @@
       }
 
       try {
+        // First, add the contact to the sender's private contacts list
         const newContactRef = collection(db, `artifacts/${appId}/users/${currentUserIdSender}/contacts`);
         const docRef = await addDoc(newContactRef, { // Store inviteStatus
           name,
@@ -344,8 +345,22 @@
           userId: currentUserIdSender,
           inviteStatus: "pending" // Initial invite status
         });
-        logToMonitor(`Sender: Contact '${name}' added successfully.`, "success", "monitorLogSender");
+        logToMonitor(`Sender: Contact '${name}' added successfully to your list.`, "success", "monitorLogSender");
         
+        // THEN, create an invite document in the publicInvites collection for the receiver to find
+        const publicInviteRef = collection(db, `artifacts/${appId}/publicInvites`);
+        await addDoc(publicInviteRef, {
+            senderUid: currentUserIdSender,
+            senderEmail: currentUserSender?.email || 'Anonymous Sender', // Sender's email for display on receiver side
+            recipientEmail: email, // The contact's email (receiver's email)
+            recipientPhone: phone || null, // The contact's phone (receiver's phone)
+            inviteStatus: "pending",
+            createdAt: Timestamp.now(),
+            contactDocId: docRef.id // Store reference to the sender's contact document
+        });
+        logToMonitor(`Sender: Created public invite for ${email || name} in publicInvites.`, "info", "monitorLogSender");
+
+
         // Simulate sending invite/notification
         if (method === "app") {
             logToMonitor(`Sender: Simulated in-app invite sent to ${email || name}.`, "info", "monitorLogSender");
@@ -401,10 +416,16 @@
                 name,
                 email: email || null,
                 phoneNumber: phone || null,
-                method // Dynamically determined method for update
+                method
                 // inviteStatus is not updated on edit unless explicitly intended
             });
             logToMonitor(`Sender: Contact '${name}' updated successfully.`, "success", "monitorLogSender");
+
+            // If the method was changed from app to sms for a Pro user, or vice-versa,
+            // or if the email changed, you might need to update the public invite document too.
+            // For simplicity in this console, we're not updating the public invite on contact edit.
+            // In a real app, this would be handled by server-side logic (e.g., Cloud Function on contact update).
+
             resetContactForm(); // Reset form after updating
         } catch (error) {
             logToMonitor(`Sender: Error updating contact: ${error.message}`, "error", "monitorLogSender");
@@ -704,3 +725,56 @@
   </script>
 </body>
 </html>
+```
+I acknowledge your query regarding the receiver side and the missing invitations. You've provided a screenshot showing the "Pending invitations" section is empty, even though you expect an invitation to have been sent.
+
+The "Received Messages Log" shows: `[19:19:38 pm] New message from P1mcnK2gpnPVbgyhVnWY3A6AS12 (UID: P1mcnK2gpnPVbgyhVnWY3A6AS12): "Test" (Method: app)`
+
+This is a **crucial piece of information!** It means that the **in-app message itself is being received** by the receiver console, which is fantastic news for the core messaging functionality.
+
+However, the invitation isn't appearing in the "Pending invitations" section. This indicates that while the *message* is being received, the *invite document* itself might not be correctly created or queried, or the security rules for invites are still an issue.
+
+Let's re-examine the flow for creating the invite document and how the receiver listens for it.
+
+**Debugging Steps:**
+
+1.  **Verify Invite Document Creation (Sender Side):**
+    * **Go to your Firebase Console** ([https://console.firebase.google.com/](https://console.firebase.google.com/)).
+    * Navigate to **Firestore Database -> Data**.
+    * Look for the collection: `artifacts/{appId}/publicInvites` (where `{appId}` is your actual app ID, e.g., `default-app-id`).
+    * **Check if a document exists in this `publicInvites` collection** after you've added a contact on the sender side.
+    * If a document exists, open it and **inspect its fields**:
+        * `inviteStatus`: Is it "pending"?
+        * `recipientEmail`: Is this email *exactly* the same (case-sensitive) as the email you're signed in with on the receiver console (`hello5@meetsafe.io`)?
+        * `senderEmail`: Is this populated correctly?
+        * `senderUid`: Is this populated correctly?
+
+2.  **Re-Verify Firestore Security Rules for `publicInvites`:**
+    * Even though we updated them, a small mistake can cause issues. Go to **Firestore Database -> Rules**.
+    * Ensure your `publicInvites` rule is **exactly** as follows and that you've clicked "Publish":
+
+    ```firestore
+    rules_version = '2';
+    service cloud.firestore {
+      match /databases/{database}/documents {
+        // ... (your existing rules for users and messages) ...
+
+        // Rule for public invites
+        match /artifacts/{appId}/publicInvites/{inviteId} {
+          allow create: if request.auth != null;
+          allow read, update: if request.auth != null && (
+            resource.data.recipientEmail == request.auth.token.email ||
+            resource.data.senderUid == request.auth.uid
+          );
+        }
+      }
+    }
+    ```
+    * Pay very close attention to `resource.data.recipientEmail == request.auth.token.email`. This is the most common point of failure for the receiver not seeing invites.
+
+3.  **Check `appId` Consistency:**
+    * In both your sender and receiver HTML files, ensure the `appId` constant is defined identically. If one is using `default-app-id` and the other is using a different value, they won't be looking at the same Firebase path.
+
+**Most likely cause:** The `recipientEmail` field in the `publicInvites` document in Firestore does not exactly match `hello5@meetsafe.io` (including case) or the `publicInvites` document itself is not being created.
+
+Please check these points, especially inspecting the `publicInvites` collection directly in your Firebase Console. Let me know what you fi
