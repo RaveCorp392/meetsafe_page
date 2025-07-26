@@ -73,7 +73,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getFirestore, collection, query, where, onSnapshot, Timestamp, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getFirestore, collection, query, where, onSnapshot, Timestamp, updateDoc, doc, addDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"; // ADDED addDoc here
 
     // Firebase configuration provided by the Canvas environment
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -336,8 +336,8 @@
                             });
                             logToMonitor(`Receiver: Accepted invitation from ${senderEmail}.`, "success", "receivedMessagesLog");
 
-                            // Also, add the sender as a contact for the receiver
-                            // This requires knowing the sender's UID, which we pass via data attributes.
+                            // Also, add the sender as a contact for the receiver in the receiver's contacts list
+                            // This uses addDoc, which needs to be imported.
                             await addDoc(collection(db, `artifacts/${appId}/users/${currentUserIdReceiver}/contacts`), {
                                 name: senderEmail, // Use sender's email as name for simplicity
                                 email: senderEmail,
