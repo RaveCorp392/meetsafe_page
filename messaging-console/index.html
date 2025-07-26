@@ -65,10 +65,6 @@
     <input id="contactName" class="input-field" placeholder="Contact Name"/>
     <input id="contactEmail" type="email" class="input-field" placeholder="Contact Email (for app)"/>
     <input id="contactPhone" type="tel" class="input-field" placeholder="Contact Phone (for SMS fallback)"/>
-    <!-- Removed: <select id="contactMethod" class="input-field"> -->
-    <!--   <option value="app">App (Primary)</option> -->
-    <!--   <option value="sms">SMS (Primary)</option> -->
-    <!-- </select> -->
     <div class="flex space-x-2 mt-2">
       <button id="addContactBtn" class="button-primary bg-purple-500">Add Contact</button>
       <button id="updateContactBtn" class="button-primary bg-orange-500 hidden">Save Changes</button>
@@ -77,8 +73,7 @@
     <div class="mt-4">
       <h3 class="text-lg font-medium">Your Contacts:</h3>
       <ul id="contactsList" class="list-disc pl-5 text-sm">
-        <!-- Contacts will be loaded here -->
-      </ul>
+        </ul>
     </div>
   </div>
 
@@ -87,8 +82,7 @@
     <h2 class="text-xl font-semibold mb-3">Send Message</h2>
     <select id="recipientContact" class="input-field">
       <option value="">Select a Contact</option>
-      <!-- Contacts will be populated here dynamically -->
-    </select>
+      </select>
     <input id="messageContent" class="input-field" placeholder="Message content"/>
     <input id="testRendezvousIdSender" class="input-field" placeholder="Test Rendezvous ID (e.g., 'test-rdv-123')" value="test-rdv-123"/>
     <div class="mt-2">
@@ -340,7 +334,7 @@
 
     document.getElementById("signOutBtnSender")?.addEventListener("click", async () => {
       try {
-        await signOut(auth);
+        await signOut(auth); // Sign out the current user
         logToMonitor("Sender: User signed out.", "info", "monitorLogSender");
         currentUserSender = null;
         currentUserIdSender = null;
@@ -408,7 +402,6 @@
     const contactNameInput = document.getElementById("contactName");
     const contactEmailInput = document.getElementById("contactEmail");
     const contactPhoneInput = document.getElementById("contactPhone");
-    // Removed: const contactMethodSelect = document.getElementById("contactMethod");
     const addContactBtn = document.getElementById("addContactBtn");
     const updateContactBtn = document.getElementById("updateContactBtn");
     const cancelEditBtn = document.getElementById("cancelEditBtn");
@@ -417,7 +410,6 @@
         if (contactNameInput) contactNameInput.value = "";
         if (contactEmailInput) contactEmailInput.value = "";
         if (contactPhoneInput) contactPhoneInput.value = "";
-        // Removed: if (contactMethodSelect) contactMethodSelect.value = "app"; // Default to app
         addContactBtn?.classList.remove("hidden");
         updateContactBtn?.classList.add("hidden");
         cancelEditBtn?.classList.add("hidden");
@@ -433,18 +425,15 @@
       const name = contactNameInput?.value.trim() || '';
       const email = contactEmailInput?.value.trim() || '';
       const phone = contactPhoneInput?.value.trim() || '';
-      // Dynamically determine method based on provided identifiers
-      let method = "app"; // Default to app if email is provided
-      if (!email && phone) { // If no email but phone is provided, it's an SMS contact
+      let method = "app";
+      if (!email && phone) {
           method = "sms";
-      } else if (!email && !phone) { // If neither, it's an invalid contact
+      } else if (!email && !phone) {
           logToMonitor("Sender: Contact must have at least an email or a phone number.", "warning", "monitorLogSender");
           return;
       }
 
-
-      // NEW LIMIT: Free users can only add contacts with 'app' method (i.e., must provide an email)
-      if (!isProUserSender && method === "sms") { // If free user and method determined to be SMS
+      if (!isProUserSender && method === "sms") {
         const upgradeModalEl = document.getElementById("upgradeModal");
         if (upgradeModalEl) {
           upgradeModalEl.classList.remove("hidden");
@@ -458,45 +447,37 @@
       }
 
       try {
-        // First, add the contact to the sender's private contacts list
         const newContactRef = collection(db, `artifacts/${appId}/users/${currentUserIdSender}/contacts`);
-        const docRef = await addDoc(newContactRef, { // Store inviteStatus
+        const docRef = await addDoc(newContactRef, {
           name,
-          email: email || null, // Store email, null if empty
-          phoneNumber: phone || null, // Store phone, null if empty
-          method, // Dynamically determined method
+          email: email || null,
+          phoneNumber: phone || null,
+          method,
           createdAt: Timestamp.now(),
           userId: currentUserIdSender,
-          inviteStatus: "pending" // Initial invite status
+          inviteStatus: "pending"
         });
         logToMonitor(`Sender: Contact '${name}' added successfully to your list.`, "success", "monitorLogSender");
         
-        // THEN, create an invite document in the publicInvites collection for the receiver to find
         const publicInviteRef = collection(db, `artifacts/${appId}/publicInvites`);
         await addDoc(publicInviteRef, {
             senderUid: currentUserIdSender,
-            senderEmail: currentUserSender?.email || 'Anonymous Sender', // Sender's email for display on receiver side
-            recipientEmail: email, // The contact's email (receiver's email)
-            recipientPhone: phone || null, // The contact's phone (receiver's phone)
+            senderEmail: currentUserSender?.email || 'Anonymous Sender',
+            recipientEmail: email,
+            recipientPhone: phone || null,
             inviteStatus: "pending",
             createdAt: Timestamp.now(),
-            contactDocId: docRef.id // Store reference to the sender's contact document
+            contactDocId: docRef.id
         });
         logToMonitor(`Sender: Created public invite for ${email || name} in publicInvites.`, "info", "monitorLogSender");
 
-
-        // Simulate sending invite/notification
         if (method === "app") {
             logToMonitor(`Sender: Simulated in-app invite sent to ${email || name}.`, "info", "monitorLogSender");
-            // In future, this would trigger a server-side call to send a real in-app notification
         } else if (method === "sms") {
-            // For SMS contacts, even for Pro users, the primary invite is email.
-            // SMS fallback for invite would happen if email not confirmed.
             logToMonitor(`Sender: Simulated email invite sent to ${email || name} (for SMS contact).`, "info", "monitorLogSender");
-            // In future, this would trigger a server-side call to send a real email invite
         }
 
-        resetContactForm(); // Reset form after adding
+        resetContactForm();
       } catch (error) {
         logToMonitor(`Sender: Error adding contact: ${error.message}`, "error", "monitorLogSender");
       }
@@ -511,7 +492,6 @@
         const name = contactNameInput?.value.trim() || '';
         const email = contactEmailInput?.value.trim() || '';
         const phone = contactPhoneInput?.value.trim() || '';
-        // Dynamically determine method for update based on provided identifiers
         let method = "app";
         if (!email && phone) {
             method = "sms";
@@ -520,7 +500,6 @@
             return;
         }
 
-        // NEW LIMIT: Free users can only add/edit contacts with 'app' method
         if (!isProUserSender && method === "sms") {
             const upgradeModalEl = document.getElementById("upgradeModal");
             if (upgradeModalEl) {
@@ -541,16 +520,9 @@
                 email: email || null,
                 phoneNumber: phone || null,
                 method
-                // inviteStatus is not updated on edit unless explicitly intended
             });
             logToMonitor(`Sender: Contact '${name}' updated successfully.`, "success", "monitorLogSender");
-
-            // If the method was changed from app to sms for a Pro user, or vice-versa,
-            // or if the email changed, you might need to update the public invite document too.
-            // For simplicity in this console, we're not updating the public invite on contact edit.
-            // In a real app, this would be handled by server-side logic (e.g., Cloud Function on contact update).
-
-            resetContactForm(); // Reset form after updating
+            resetContactForm();
         } catch (error) {
             logToMonitor(`Sender: Error updating contact: ${error.message}`, "error", "monitorLogSender");
         }
@@ -563,7 +535,7 @@
 
     const renderContacts = () => {
       const listEl = document.getElementById("contactsList");
-      if (!listEl) return; // Null check for contactsList
+      if (!listEl) return;
       listEl.innerHTML = "";
       if (userContactsSender.length === 0) {
         listEl.innerHTML = "<li>No contacts added yet.</li>";
@@ -584,7 +556,6 @@
         listEl.appendChild(li);
       });
 
-      // Add event listeners for edit and delete buttons
       document.querySelectorAll('.edit-btn').forEach(button => {
           button.addEventListener('click', (e) => {
               const contactId = e.target.dataset.contactId;
@@ -594,9 +565,6 @@
                   if (contactNameInput) contactNameInput.value = contactToEdit.name;
                   if (contactEmailInput) contactEmailInput.value = contactToEdit.email || '';
                   if (contactPhoneInput) contactPhoneInput.value = contactToEdit.phoneNumber || '';
-                  // Method is now determined, not selected, so no need to set select value
-                  // if (contactMethodSelect) contactMethodSelect.value = contactToEdit.method;
-
                   addContactBtn?.classList.add("hidden");
                   updateContactBtn?.classList.remove("hidden");
                   cancelEditBtn?.classList.remove("hidden");
@@ -612,11 +580,11 @@
                     logToMonitor("Sender: Not signed in to delete contacts.", "warning", "monitorLogSender");
                     return;
                 }
-                if (confirm(`Are you sure you want to delete this contact?`)) { // Using confirm for simplicity in console
+                if (confirm(`Are you sure you want to delete this contact?`)) {
                     try {
                         await deleteDoc(doc(db, `artifacts/${appId}/users/${currentUserIdSender}/contacts/${contactId}`));
                         logToMonitor(`Sender: Contact deleted successfully.`, "success", "monitorLogSender");
-                        resetContactForm(); // Reset form in case deleted contact was being edited
+                        resetContactForm();
                     } catch (error) {
                         logToMonitor(`Sender: Error deleting contact: ${error.message}`, "error", "monitorLogSender");
                     }
@@ -627,7 +595,7 @@
 
       const populateRecipientDropdown = () => {
         const selectEl = document.getElementById("recipientContact");
-        if (!selectEl) return; // Null check for recipientContact
+        if (!selectEl) return;
         selectEl.innerHTML = '<option value="">Select a Contact</option>';
         userContactsSender.forEach(contact => {
           const option = document.createElement("option");
@@ -640,7 +608,6 @@
         });
       };
 
-      // --- Messaging Logic ---
       document.getElementById("sendMessageBtn")?.addEventListener("click", async () => {
         if (!currentUserSender || !currentUserIdSender) {
           logToMonitor("Sender: Please sign in to send messages.", "warning", "monitorLogSender");
@@ -668,7 +635,6 @@
           return;
         }
 
-        // Determine the 'to' identifier based on the primary method stored in contact
         let toIdentifier = null;
         if (recipientContact.method === "app") {
             toIdentifier = recipientContact.email;
@@ -681,10 +647,7 @@
             return;
         }
 
-        // NEW CONSTRAINT: Free user can only send to one unique app contact per Rendezvous
-        // AND for free users, SMS fallback is allowed only for this one app contact if in-app fails.
         if (!isProUserSender) {
-            // If the primary method of the selected contact is SMS, block sending
             if (recipientContact.method === "sms") {
                 const upgradeModalEl = document.getElementById("upgradeModal");
                 if (upgradeModalEl) {
@@ -698,7 +661,6 @@
                 return;
             }
 
-            // Query for any existing app messages sent by this user within this rendezvous
             const messagesSentByThisUserInRendezvousQuery = query(
                 collection(db, `artifacts/${appId}/messages/${testRendezvousId}/messages`),
                 where("from", "==", currentUserIdSender),
@@ -709,10 +671,8 @@
             let existingRecipientEmail = null;
 
             if (!existingMessagesSnap.empty) {
-                // Get the recipient email from the first existing app message by this sender in this rendezvous
                 existingRecipientEmail = existingMessagesSnap.docs[0].data().recipientEmail;
 
-                // If a message already exists for this rendezvous with a different app recipient
                 if (existingRecipientEmail && existingRecipientEmail !== recipientContact.email) {
                     const upgradeModalEl = document.getElementById("upgradeModal");
                     if (upgradeModalEl) {
@@ -729,10 +689,9 @@
         }
 
         try {
-          // Create a new subcollection for messages under the rendezvous ID
           const messagesCollectionRef = collection(db, `artifacts/${appId}/messages/${testRendezvousId}/messages`);
           const messageRef = await addDoc(messagesCollectionRef, {
-            to: toIdentifier, // Email for app, Phone for SMS
+            to: toIdentifier,
             from: currentUserIdSender,
             sentAt: Timestamp.now(),
             delivered: false,
@@ -740,18 +699,16 @@
             fallback: "none",
             acknowledged: false,
             content: messageContent,
-            recipientEmail: recipientContact.email || null, // Store both for clarity
-            recipientPhone: recipientContact.phoneNumber || null // Store both for clarity
+            recipientEmail: recipientContact.email || null,
+            recipientPhone: recipientContact.phoneNumber || null
           });
           logToMonitor(`Sender: Message initiated to ${recipientContact.name} via ${recipientContact.method}. Message ID: ${messageRef.id}`, "info", "monitorLogSender");
 
           if (recipientContact.method === "app") {
             simulateInAppDelivery(messageRef, simulateInAppSuccess, recipientContact, testRendezvousId);
           } else if (recipientContact.method === "sms") {
-            // If primary method is SMS, simulate direct SMS send (no in-app attempt first)
             await updateDoc(messageRef, { delivered: true });
             logToMonitor(`Sender: Direct SMS to ${recipientContact.name} simulated as sent.`, "success", "monitorLogSender");
-            // Trigger actual Twilio SMS if it's a direct SMS and a phone number exists
             if (recipientContact.phoneNumber) {
                 sendTwilioSms(recipientContact.phoneNumber, messageContent, messageRef.id, "Direct SMS");
             }
@@ -761,92 +718,6 @@
           logToMonitor(`Sender: Error sending message: ${error.message}`, "error", "monitorLogSender");
         }
       });
-
-      const simulateInAppDelivery = (messageRef, success, recipientContact, rendezvousId) => {
-        const deliveryAttemptTimeout = 5000; // Simulate 5 seconds for initial delivery attempt
-        const fallbackCheckTimeout = 10000; // Check for fallback after 10 seconds (instead of 60s for faster testing)
-
-        let delivered = false;
-
-        // Simulate initial delivery attempt
-        setTimeout(async () => {
-          if (success) {
-            delivered = true;
-            await updateDoc(messageRef, { delivered: true });
-            logToMonitor(`Sender: In-app message to ${recipientContact.name} delivered successfully!`, "success", "monitorLogSender");
-          } else {
-            logToMonitor(`Sender: In-app message to ${recipientContact.name} failed to deliver immediately.`, "warning", "monitorLogSender");
-          }
-        }, deliveryAttemptTimeout);
-
-        // Check for fallback after `fallbackCheckTimeout` if not delivered
-        setTimeout(async () => {
-          if (!delivered) {
-            const messageSnap = await getDoc(messageRef);
-            const messageData = messageSnap.data();
-
-            if (!messageData.delivered && messageData.method === "app") {
-              logToMonitor(`Sender: In-app message to ${recipientContact.name} not confirmed delivered within ${fallbackCheckTimeout / 1000}s. Checking fallback...`, "warning", "monitorLogSender");
-
-              // MODIFIED: Free user now also gets SMS fallback for their one app contact
-              // The condition now checks if it's a Pro user OR if it's a Free user AND the contact has a phone number.
-              if (isProUserSender || (!isProUserSender && recipientContact.phoneNumber)) {
-                if (recipientContact.phoneNumber) { // Check if phone number is available for SMS fallback
-                   logToMonitor(`Sender: SMS fallback initiated for ${recipientContact.name}.`, "info", "monitorLogSender");
-                   // Trigger actual Twilio SMS
-                   sendTwilioSms(recipientContact.phoneNumber, messageData.content, messageRef.id, "Fallback SMS");
-                   await updateDoc(messageRef, { fallback: "sms", delivered: true }); // Mark delivered after fallback attempt
-                   logToMonitor(`Sender: SMS fallback to ${recipientContact.name}'s phone number triggered.`, "success", "monitorLogSender");
-                } else {
-                   logToMonitor(`Sender: Cannot fallback to SMS for ${recipientContact.name}: No phone number available.`, "warning", "monitorLogSender");
-                }
-              } else {
-                // This branch is now only for Free users who don't have a phone number for the contact
-                logToMonitor(`Sender: SMS fallback not available for Free User (${recipientContact.name}) without a phone number.`, "warning", "monitorLogSender");
-              }
-            }
-          }
-        }, fallbackCheckTimeout);
-      };
-
-      // --- Twilio SMS Function (Conceptual Client-Side) ---
-      // In a real application, this would be a fetch to your secure server-side proxy
-      const sendTwilioSms = async (toPhoneNumber, messageBody, messageId, type) => {
-          logToMonitor(`Twilio: Attempting to send ${type} to ${toPhoneNumber} for message ID: ${messageId}`, "info", "twilioSmsLog");
-          // IMPORTANT: Replace this with the actual URL of your server-side Twilio proxy.
-          // Your Twilio Account SID and Auth Token should be securely stored on your server-side proxy, NOT here.
-          const twilioProxyUrl = "http://127.0.0.1:5000/send-sms"; // This should be your proxy URL
-
-          if (twilioProxyUrl === "http://127.0.0.1:5000/send-sms" && !toPhoneNumber.includes('+')) {
-              logToMonitor("Twilio: Warning: Phone number might be invalid for real SMS. Ensure it includes country code (e.g., +61...).", "warning", "twilioSmsLog");
-          }
-
-
-          try {
-              const response = await fetch(twilioProxyUrl, {
-                  method: 'POST',
-                  headers: {
-                      'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                      to: toPhoneNumber,
-                      body: messageBody,
-                      messageId: messageId // Pass message ID for server-side logging/tracking
-                  }),
-              });
-
-              const result = await response.json();
-
-              if (response.ok) {
-                  logToMonitor(`Twilio: ${type} sent successfully to ${toPhoneNumber}. Response: ${JSON.stringify(result)}`, "success", "twilioSmsLog");
-              } else {
-                  logToMonitor(`Twilio: Failed to send ${type} to ${toPhoneNumber}. Error: ${result.error || response.statusText}`, "error", "twilioSmsLog");
-              }
-          } catch (error) {
-              logToMonitor(`Twilio: Network or unexpected error sending ${type} to ${toPhoneNumber}: ${error.message}`, "error", "twilioSmsLog");
-          }
-      };
-    })(); // End of IIFE
   </script>
 </body>
 </html>
