@@ -567,7 +567,7 @@
                   if (contactPhoneInput) contactPhoneInput.value = contactToEdit.phoneNumber || '';
                   addContactBtn?.classList.add("hidden");
                   updateContactBtn?.classList.remove("hidden");
-                  cancelEditBtn?.classList.remove("hidden");
+                  cancelEditBtn?.classList.add("hidden");
                   logToMonitor(`Sender: Editing contact: ${contactToEdit.name}`, "info", "monitorLogSender");
                 }
             });
