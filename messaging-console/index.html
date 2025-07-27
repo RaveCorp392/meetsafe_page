@@ -93,7 +93,7 @@
       const out = document.getElementById(el);
       const time = new Date().toLocaleTimeString();
       const line = document.createElement('div');
-      line.className = `text-${type === 'error' ? 'red' : 'green'}-400`;
+      line.className = `text-${type === 'error' ? 'red' : type === 'warning' ? 'yellow' : 'green'}-400`;
       line.innerHTML = `[${time}] ${msg}`;
       out.appendChild(line);
       out.scrollTop = out.scrollHeight;
@@ -149,10 +149,15 @@
         setTimeout(() => {
           sendTwilioSms(contact.phone, content, messageId);
         }, 10000);
+      } else if (contact.method === 'app' && mode === 'success') {
+        log(`🟢 Simulating in-app delivery...`, 'info');
+        setTimeout(() => {
+          log(`✅ Message to ${contact.name} delivered successfully`, 'success');
+        }, 5000);
       } else if (contact.method === 'sms') {
         sendTwilioSms(contact.phone, content, messageId);
       } else {
-        log(`✅ Simulated in-app delivery to ${contact.name}`);
+        log(`❓ Unsupported delivery combination`, 'warning');
       }
     });
 
