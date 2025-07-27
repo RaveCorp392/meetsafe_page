@@ -65,7 +65,11 @@
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ to, body, messageId: `manual-${Date.now()}` })
+        body: JSON.stringify({
+          to,
+          body,
+          messageId: `manual-${Date.now()}`
+        })
       })
       .then(res => res.json())
       .then(result => {
