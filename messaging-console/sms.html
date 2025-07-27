@@ -32,7 +32,6 @@
   <h1 class="text-3xl font-bold">MeetSafe Messaging Console (Sender)</h1>
   <div class="text-red-600 font-semibold">🔥 Full feature set loaded: Auth, Contacts, In-App + Fallback SMS</div>
 
-  <div id="console"></div>
   <div>
     <h2 class="text-lg font-semibold mb-2">Twilio SMS Outbound Log (Conceptual)</h2>
     <div id="twilioSmsLog" class="log-area bg-purple-900 text-white p-4 h-64 overflow-y-scroll text-sm rounded-lg shadow-inner">Simulated Twilio activity...</div>
@@ -40,8 +39,8 @@
 
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-    import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-    import { getFirestore, collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, addDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+    import { getAuth } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+    import { getFirestore } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
     const firebaseConfig = {
       apiKey: "AIzaSyAV52Ads-ckhKuGsKvHoYYTrDIqBHMHusQ",
@@ -55,9 +54,6 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
-
-    const uid = () => auth.currentUser?.uid;
-    const el = id => document.getElementById(id);
 
     const log = (msg, elId = "twilioSmsLog") => {
       const elLog = document.getElementById(elId);
@@ -76,18 +72,19 @@
           body: JSON.stringify({ to, body, messageId })
         });
 
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
         const result = await res.json();
-        if (result.status === 'success') {
-          log(`✅ SMS sent. SID: ${result.sid}`);
-        } else {
-          throw new Error(result.error || 'Unknown error');
+        if (!res.ok || result.status !== 'success') {
+          throw new Error(result.error || `HTTP ${res.status}`);
         }
+
+        log(`✅ SMS sent. SID: ${result.sid}`);
       } catch (err) {
         log(`❌ SMS failed: ${err.message}`);
       }
     };
+
+    // For testing only
+    sendTwilioSms("+61400111222", "Test message from console", "mock-msg-id-001");
   </script>
 </body>
 </html>
