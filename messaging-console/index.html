@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>MeetSafe Messaging Console (Sender)</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script type="module" src="./full-sender-console.js"></script>
   <style>
     body {
       font-family: 'Inter', sans-serif;
@@ -28,60 +29,63 @@
 <body class="p-6 space-y-8">
   <h1 class="text-3xl font-bold">MeetSafe Messaging Console (Sender)</h1>
 
+  <!-- Authentication UI -->
+  <div class="bg-white p-4 rounded shadow">
+    <h2 class="text-xl font-semibold mb-3">Authentication</h2>
+    <input id="authEmailSender" type="email" class="input-field" placeholder="Email" value="sender@example.com"/>
+    <input id="authPasswordSender" type="password" class="input-field" placeholder="Password" value="password123"/>
+    <div class="flex space-x-2 mt-2">
+      <button id="signUpBtnSender" class="button-primary bg-blue-500">Sign Up</button>
+      <button id="signInBtnSender" class="button-primary bg-green-500">Sign In</button>
+      <button id="signOutBtnSender" class="button-primary bg-red-500">Sign Out</button>
+    </div>
+    <p class="mt-4 text-sm">Current User: <span id="currentUserDisplaySender" class="font-medium">Not authenticated</span><br>User ID: <span id="currentUidDisplaySender" class="font-medium">N/A</span></p>
+  </div>
+
+  <!-- Contact Management -->
+  <div class="bg-white p-4 rounded shadow">
+    <h2 class="text-xl font-semibold mb-3">Trusted Contacts</h2>
+    <input id="contactName" class="input-field" placeholder="Contact Name"/>
+    <input id="contactEmail" type="email" class="input-field" placeholder="Contact Email (for app)"/>
+    <input id="contactPhone" type="tel" class="input-field" placeholder="Contact Phone (for SMS fallback)"/>
+    <div class="flex space-x-2 mt-2">
+      <button id="addContactBtn" class="button-primary bg-purple-500">Add Contact</button>
+      <button id="updateContactBtn" class="button-primary bg-orange-500 hidden">Save Changes</button>
+      <button id="cancelEditBtn" class="button-primary bg-gray-500 hidden">Cancel Edit</button>
+    </div>
+    <ul id="contactsList" class="list-disc pl-5 text-sm mt-4"></ul>
+  </div>
+
+  <!-- Message Sending -->
   <div class="bg-white p-4 rounded shadow">
     <h2 class="text-xl font-semibold mb-3">Send Message</h2>
-    <input id="recipient" class="input-field" placeholder="Phone number (e.g. +614...)" />
-    <input id="message" class="input-field" placeholder="Message text" />
-    <button id="sendBtn" class="button-primary">Send</button>
+    <select id="recipientContact" class="input-field">
+      <option value="">Select a Contact</option>
+    </select>
+    <input id="messageContent" class="input-field" placeholder="Message content" />
+    <input id="testRendezvousIdSender" class="input-field" placeholder="Rendezvous ID (e.g. test-rdv-123)" value="test-rdv-123"/>
+    <div class="mt-2">
+      <label class="inline-flex items-center mr-4">
+        <input type="radio" name="deliverySim" value="success" checked class="form-radio h-4 w-4 text-green-600">
+        <span class="ml-2 text-gray-700">Simulate In-App Success</span>
+      </label>
+      <label class="inline-flex items-center">
+        <input type="radio" name="deliverySim" value="failure" class="form-radio h-4 w-4 text-red-600">
+        <span class="ml-2 text-gray-700">Simulate In-App Failure</span>
+      </label>
+    </div>
+    <button id="sendMessageBtn" class="button-primary bg-green-600 mt-4">Send Message</button>
+  </div>
+
+  <!-- Logs -->
+  <div>
+    <h2 class="text-lg font-semibold mb-2">Sender Monitor Log</h2>
+    <div id="monitorLogSender" class="log-area bg-black text-white p-4 h-64 overflow-y-scroll text-sm rounded-lg shadow-inner">Monitoring log...</div>
   </div>
 
   <div>
     <h2 class="text-lg font-semibold mb-2">Twilio SMS Log</h2>
-    <div id="log" class="log-area bg-black text-white p-4 h-64 overflow-y-scroll text-sm rounded-lg shadow-inner">Waiting for messages...</div>
+    <div id="twilioSmsLog" class="log-area bg-purple-900 text-white p-4 h-64 overflow-y-scroll text-sm rounded-lg shadow-inner">Twilio log...</div>
   </div>
-
-  <script type="module">
-    const log = (msg, type = 'info') => {
-      const el = document.getElementById('log');
-      const time = new Date().toLocaleTimeString();
-      const line = document.createElement('div');
-      line.className = `text-${type === 'error' ? 'red' : 'green'}-400`;
-      line.innerHTML = `[${time}] ${msg}`;
-      el.appendChild(line);
-      el.scrollTop = el.scrollHeight;
-    };
-
-    async function sendTwilioSms(to, body, messageId, type = 'Direct SMS') {
-      log(`Twilio: Attempting to send ${type} to ${to} (messageId: ${messageId})`, 'info');
-      try {
-        const res = await fetch('http://127.0.0.1:5000/send-sms', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ to, body, messageId })
-        });
-        const result = await res.json();
-        if (res.ok && result.status === 'success') {
-          log(`✅ SMS sent to ${to}. SID: ${result.sid}`);
-        } else {
-          throw new Error(result.error || 'Unknown error');
-        }
-      } catch (err) {
-        log(`❌ Failed to send SMS: ${err.message}`, 'error');
-      }
-    }
-
-    document.getElementById('sendBtn').addEventListener('click', () => {
-      const to = document.getElementById('recipient').value.trim();
-      const body = document.getElementById('message').value.trim();
-      const messageId = `manual-${Date.now()}`;
-
-      if (!to || !body) {
-        log('Both phone number and message body are required.', 'error');
-        return;
-      }
-
-      sendTwilioSms(to, body, messageId);
-    });
-  </script>
 </body>
 </html>
