@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>MeetSafe Messaging Console (Sender)</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script type="module" src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
+  <script type="module" src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"></script>
+  <script type="module" src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"></script>
   <style>
     body {
       font-family: 'Inter', sans-serif;
@@ -27,86 +30,115 @@
 </head>
 <body class="p-6 space-y-8">
   <h1 class="text-3xl font-bold">MeetSafe Messaging Console (Sender)</h1>
+  <div class="text-red-600 font-semibold">🔥 Full feature set loaded: Auth, Contacts, In-App + Fallback SMS</div>
 
-  <!-- Authentication UI -->
-  <div class="bg-white p-4 rounded shadow">
-    <h2 class="text-xl font-semibold mb-3">Authentication</h2>
-    <input id="authEmailSender" type="email" class="input-field" placeholder="Email" value="sender@example.com"/>
-    <input id="authPasswordSender" type="password" class="input-field" placeholder="Password" value="password123"/>
-    <div class="flex space-x-2 mt-2">
-      <button id="signUpBtnSender" class="button-primary bg-blue-500">Sign Up</button>
-      <button id="signInBtnSender" class="button-primary bg-green-500">Sign In</button>
-      <button id="signOutBtnSender" class="button-primary bg-red-500">Sign Out</button>
-    </div>
-    <p class="mt-4 text-sm">Current User: <span id="currentUserDisplaySender" class="font-medium">Not authenticated</span><br>User ID: <span id="currentUidDisplaySender" class="font-medium">N/A</span></p>
-  </div>
-
-  <!-- Contact Management -->
-  <div class="bg-white p-4 rounded shadow">
-    <h2 class="text-xl font-semibold mb-3">Trusted Contacts</h2>
-    <input id="contactName" class="input-field" placeholder="Contact Name"/>
-    <input id="contactEmail" type="email" class="input-field" placeholder="Contact Email (for app)"/>
-    <input id="contactPhone" type="tel" class="input-field" placeholder="Contact Phone (for SMS fallback)"/>
-    <div class="flex space-x-2 mt-2">
-      <button id="addContactBtn" class="button-primary bg-purple-500">Add Contact</button>
-    </div>
-    <ul id="contactsList" class="list-disc pl-5 text-sm mt-4"></ul>
-  </div>
-
-  <!-- Message Sending -->
-  <div class="bg-white p-4 rounded shadow">
-    <h2 class="text-xl font-semibold mb-3">Send Message</h2>
-    <select id="recipientContact" class="input-field">
-      <option value="">Select a Contact</option>
-    </select>
-    <input id="messageContent" class="input-field" placeholder="Message content" />
-    <input id="testRendezvousIdSender" class="input-field" placeholder="Rendezvous ID (e.g. test-rdv-123)" value="test-rdv-123"/>
-    <div class="mt-2">
-      <label class="inline-flex items-center mr-4">
-        <input type="radio" name="deliverySim" value="success" checked class="form-radio h-4 w-4 text-green-600">
-        <span class="ml-2 text-gray-700">Simulate In-App Success</span>
-      </label>
-      <label class="inline-flex items-center">
-        <input type="radio" name="deliverySim" value="failure" class="form-radio h-4 w-4 text-red-600">
-        <span class="ml-2 text-gray-700">Simulate In-App Failure</span>
-      </label>
-    </div>
-    <button id="sendMessageBtn" class="button-primary bg-green-600 mt-4">Send Message</button>
-  </div>
-
-  <!-- Logs -->
-  <div>
-    <h2 class="text-lg font-semibold mb-2">Sender Monitor Log</h2>
-    <div id="monitorLogSender" class="log-area bg-black text-white p-4 h-64 overflow-y-scroll text-sm rounded-lg shadow-inner">Monitoring log...</div>
-  </div>
-
-  <div>
-    <h2 class="text-lg font-semibold mb-2">Twilio SMS Log</h2>
-    <div id="twilioSmsLog" class="log-area bg-purple-900 text-white p-4 h-64 overflow-y-scroll text-sm rounded-lg shadow-inner">Twilio log...</div>
-  </div>
+  <div id="console"></div>
 
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
     import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+    import { getFirestore, collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, addDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
-    const log = (msg, type = 'info', el = 'monitorLogSender') => {
-      const out = document.getElementById(el);
-      const time = new Date().toLocaleTimeString();
-      const line = document.createElement('div');
-      line.className = `text-${type === 'error' ? 'red' : type === 'warning' ? 'yellow' : 'green'}-400`;
-      line.innerHTML = `[${time}] ${msg}`;
-      out.appendChild(line);
-      out.scrollTop = out.scrollHeight;
+    const firebaseConfig = {
+      apiKey: "AIzaSyAV52Ads-ckhKuGsKvHoYYTrDIqBHMHusQ",
+      authDomain: "meetsafe-clean-core.firebaseapp.com",
+      projectId: "meetsafe-clean-core",
+      storageBucket: "meetsafe-clean-core.appspot.com",
+      messagingSenderId: "970833854934",
+      appId: "1:970833854934:web:5ae847503baa2c6c552477"
     };
 
-    const contacts = [];
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
 
-    function updateContactList() {
-      const ul = document.getElementById('contactsList');
-      const select = document.getElementById('recipientContact');
-      ul.innerHTML = '';
-      select.innerHTML = '<option value="">Select a Contact</option>';
-      contacts.forEach((c, i) => {
+    const uid = () => auth.currentUser?.uid;
+    const el = id => document.getElementById(id);
+
+    const state = {
+      contacts: [],
+      selectedContact: null,
+    };
+
+    function log(msg, elId = "monitorLogSender") {
+      const elLog = document.getElementById(elId);
+      if (!elLog) return;
+      const ts = new Date().toLocaleTimeString();
+      elLog.innerHTML += `<div class='text-green-400'>[${ts}] ${msg}</div>`;
+      elLog.scrollTop = elLog.scrollHeight;
+    }
+
+    function buildUI() {
+      el("console").innerHTML = `
+        <div class="bg-white p-4 rounded shadow">
+          <h2 class="text-xl font-semibold mb-3">Authentication</h2>
+          <input id="authEmailSender" type="email" class="input-field" placeholder="Email" value="sender@example.com"/>
+          <input id="authPasswordSender" type="password" class="input-field" placeholder="Password" value="password123"/>
+          <div class="flex space-x-2 mt-2">
+            <button id="signUpBtnSender" class="button-primary bg-blue-500">Sign Up</button>
+            <button id="signInBtnSender" class="button-primary bg-green-500">Sign In</button>
+            <button id="signOutBtnSender" class="button-primary bg-red-500">Sign Out</button>
+          </div>
+          <p class="mt-4 text-sm">Current User: <span id="currentUserDisplaySender" class="font-medium">Not authenticated</span><br>User ID: <span id="currentUidDisplaySender" class="font-medium">N/A</span></p>
+        </div>
+
+        <div class="bg-white p-4 rounded shadow">
+          <h2 class="text-xl font-semibold mb-3">Trusted Contacts</h2>
+          <input id="contactName" class="input-field" placeholder="Contact Name"/>
+          <input id="contactEmail" type="email" class="input-field" placeholder="Contact Email (for app)"/>
+          <input id="contactPhone" type="tel" class="input-field" placeholder="Contact Phone (for SMS fallback)"/>
+          <div class="flex space-x-2 mt-2">
+            <button id="addContactBtn" class="button-primary bg-purple-500">Add Contact</button>
+          </div>
+          <ul id="contactsList" class="list-disc pl-5 text-sm mt-4"></ul>
+        </div>
+
+        <div class="bg-white p-4 rounded shadow">
+          <h2 class="text-xl font-semibold mb-3">Send Message</h2>
+          <select id="recipientContact" class="input-field">
+            <option value="">Select a Contact</option>
+          </select>
+          <input id="messageContent" class="input-field" placeholder="Message content" />
+          <input id="testRendezvousIdSender" class="input-field" placeholder="Rendezvous ID (e.g. test-rdv-123)" value="test-rdv-123"/>
+          <div class="mt-2">
+            <label class="inline-flex items-center mr-4">
+              <input type="radio" name="deliverySim" value="success" checked class="form-radio h-4 w-4 text-green-600">
+              <span class="ml-2 text-gray-700">Simulate In-App Success</span>
+            </label>
+            <label class="inline-flex items-center">
+              <input type="radio" name="deliverySim" value="failure" class="form-radio h-4 w-4 text-red-600">
+              <span class="ml-2 text-gray-700">Simulate In-App Failure</span>
+            </label>
+          </div>
+          <button id="sendMessageBtn" class="button-primary bg-green-600 mt-4">Send Message</button>
+        </div>
+
+        <div>
+          <h2 class="text-lg font-semibold mb-2">Sender Monitor Log</h2>
+          <div id="monitorLogSender" class="log-area bg-black text-white p-4 h-64 overflow-y-scroll text-sm rounded-lg shadow-inner">Monitoring log...</div>
+        </div>
+
+        <div>
+          <h2 class="text-lg font-semibold mb-2">Twilio SMS Log</h2>
+          <div id="twilioSmsLog" class="log-area bg-purple-900 text-white p-4 h-64 overflow-y-scroll text-sm rounded-lg shadow-inner">Twilio log...</div>
+        </div>
+      `;
+    }
+
+    async function refreshContacts() {
+      if (!uid()) return;
+      const ref = collection(db, `contacts/${uid()}/contacts`);
+      const snap = await getDocs(ref);
+      state.contacts = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      updateContactUI();
+    }
+
+    function updateContactUI() {
+      const ul = el("contactsList");
+      const select = el("recipientContact");
+      ul.innerHTML = "";
+      select.innerHTML = `<option value="">Select a Contact</option>`;
+      state.contacts.forEach((c, i) => {
         ul.innerHTML += `<li>${c.name} (${c.method}): ${c.email || ''} ${c.phone || ''}</li>`;
         const opt = document.createElement('option');
         opt.value = i;
@@ -115,118 +147,91 @@
       });
     }
 
-    document.getElementById('addContactBtn').addEventListener('click', () => {
-      const name = document.getElementById('contactName').value.trim();
-      const email = document.getElementById('contactEmail').value.trim();
-      const phone = document.getElementById('contactPhone').value.trim();
-      const method = email ? 'app' : 'sms';
-      if (!name || (!email && !phone)) {
-        log('❌ Contact must have name and at least email or phone', 'error');
-        return;
-      }
-      contacts.push({ name, email, phone, method });
-      updateContactList();
-      log(`✅ Contact added: ${name}`);
-    });
-
-    document.getElementById('sendMessageBtn').addEventListener('click', async () => {
-      const index = document.getElementById('recipientContact').value;
-      const contact = contacts[index];
-      const content = document.getElementById('messageContent').value;
-      const rendezvousId = document.getElementById('testRendezvousIdSender').value;
-      const mode = document.querySelector('input[name="deliverySim"]:checked').value;
-      const messageId = `m-${Date.now()}`;
-
-      if (!contact || !content || !rendezvousId) {
-        log('❌ Missing message details', 'error');
-        return;
-      }
-
-      log(`📤 Sending to ${contact.name} via ${contact.method}`, 'info');
-
-      if (contact.method === 'app' && mode === 'failure' && contact.phone) {
-        log(`⚠️ In-app failed. Fallback to SMS in 10s...`, 'warning');
-        setTimeout(() => {
-          sendTwilioSms(contact.phone, content, messageId);
-        }, 10000);
-      } else if (contact.method === 'app' && mode === 'success') {
-        log(`🟢 Simulating in-app delivery...`, 'info');
-        setTimeout(() => {
-          log(`✅ Message to ${contact.name} delivered successfully`, 'success');
-        }, 5000);
-      } else if (contact.method === 'sms') {
-        sendTwilioSms(contact.phone, content, messageId);
-      } else {
-        log(`❓ Unsupported delivery combination`, 'warning');
-      }
-    });
-
-    async function sendTwilioSms(to, body, messageId) {
-      log(`📨 Sending SMS to ${to}`, 'info', 'twilioSmsLog');
-      try {
-        const res = await fetch('http://127.0.0.1:5000/send-sms', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ to, body, messageId })
-        });
-        const result = await res.json();
-        if (res.ok && result.status === 'success') {
-          log(`✅ SMS sent. SID: ${result.sid}`, 'success', 'twilioSmsLog');
-        } else {
-          throw new Error(result.error || 'Unknown error');
-        }
-      } catch (err) {
-        log(`❌ SMS failed: ${err.message}`, 'error', 'twilioSmsLog');
-      }
+    function sendTwilioSms(to, body, messageId) {
+      log(`📨 Sending SMS to ${to}`, 'twilioSmsLog');
+      fetch('http://127.0.0.1:5000/send-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to, body, messageId })
+      })
+        .then(res => res.json())
+        .then(result => {
+          if (result.status === 'success') {
+            log(`✅ SMS sent. SID: ${result.sid}`, 'twilioSmsLog');
+          } else {
+            throw new Error(result.error);
+          }
+        })
+        .catch(err => log(`❌ SMS failed: ${err.message}`, 'twilioSmsLog'));
     }
 
-    // Firebase setup
-    const app = initializeApp({
-      apiKey: "AIzaSyAV52Ads-ckhKuGsKvHoYYTrDIqBHMHusQ",
-      authDomain: "meetsafe-clean-core.firebaseapp.com",
-      projectId: "meetsafe-clean-core",
-      storageBucket: "meetsafe-clean-core.appspot.com",
-      messagingSenderId: "970833854934",
-      appId: "1:970833854934:web:5ae847503baa2c6c552477"
+    function setupHandlers() {
+      el("addContactBtn").onclick = async () => {
+        const name = el("contactName").value.trim();
+        const email = el("contactEmail").value.trim();
+        const phone = el("contactPhone").value.trim();
+        const method = email ? 'app' : 'sms';
+        if (!name || (!email && !phone)) return alert('Missing contact info');
+        const ref = doc(collection(db, `contacts/${uid()}/contacts`));
+        await setDoc(ref, { name, email, phone, method });
+        await setDoc(doc(db, `publicInvites/${ref.id}`), { senderId: uid(), inviteStatus: "pending", name, email });
+        log(`✅ Contact ${name} added + invite sent`);
+        refreshContacts();
+      };
+
+      el("sendMessageBtn").onclick = async () => {
+        const index = el("recipientContact").value;
+        const contact = state.contacts[index];
+        const content = el("messageContent").value;
+        const rendezvousId = el("testRendezvousIdSender").value;
+        const mode = document.querySelector('input[name="deliverySim"]:checked').value;
+        const messageId = `m-${Date.now()}`;
+        if (!contact || !content || !rendezvousId) return alert("Missing fields");
+
+        log(`📤 Sending to ${contact.name} via ${contact.method}`);
+
+        if (contact.method === 'app' && mode === 'failure' && contact.phone) {
+          log(`⚠️ In-app failed. Fallback to SMS in 10s...`, 'warning');
+          setTimeout(() => sendTwilioSms(contact.phone, content, messageId), 10000);
+        } else if (contact.method === 'app' && mode === 'success') {
+          await addDoc(collection(db, `artifacts/${uid()}/messages/${rendezvousId}/messages`), {
+            content,
+            senderId: uid(),
+            contactId: contact.id,
+            delivered: false,
+            createdAt: new Date().toISOString()
+          });
+          log(`✅ Message stored in Firestore`);
+        } else if (contact.method === 'sms') {
+          sendTwilioSms(contact.phone, content, messageId);
+        }
+      };
+    }
+
+    onAuthStateChanged(auth, user => {
+      el("currentUserDisplaySender").textContent = user?.email || "Not authenticated";
+      el("currentUidDisplaySender").textContent = user?.uid || "N/A";
+      if (user) refreshContacts();
     });
 
-    const auth = getAuth(app);
-
-    document.getElementById("signUpBtnSender").addEventListener("click", async () => {
-      const email = document.getElementById("authEmailSender").value;
-      const pw = document.getElementById("authPasswordSender").value;
-      try {
-        await createUserWithEmailAndPassword(auth, email, pw);
-        log("✅ Signed up", "success");
-      } catch (err) {
-        log(`❌ ${err.message}`, "error");
-      }
+    el("signUpBtnSender")?.addEventListener("click", async () => {
+      const email = el("authEmailSender").value;
+      const pw = el("authPasswordSender").value;
+      await createUserWithEmailAndPassword(auth, email, pw);
     });
 
-    document.getElementById("signInBtnSender").addEventListener("click", async () => {
-      const email = document.getElementById("authEmailSender").value;
-      const pw = document.getElementById("authPasswordSender").value;
-      try {
-        await signInWithEmailAndPassword(auth, email, pw);
-        log("✅ Signed in", "success");
-      } catch (err) {
-        log(`❌ ${err.message}`, "error");
-      }
+    el("signInBtnSender")?.addEventListener("click", async () => {
+      const email = el("authEmailSender").value;
+      const pw = el("authPasswordSender").value;
+      await signInWithEmailAndPassword(auth, email, pw);
     });
 
-    document.getElementById("signOutBtnSender").addEventListener("click", async () => {
-      try {
-        await signOut(auth);
-        log("👋 Signed out", "info");
-      } catch (err) {
-        log(`❌ ${err.message}`, "error");
-      }
+    el("signOutBtnSender")?.addEventListener("click", () => {
+      signOut(auth);
     });
 
-    onAuthStateChanged(auth, (user) => {
-      document.getElementById("currentUserDisplaySender").textContent = user?.email || "Not authenticated";
-      document.getElementById("currentUidDisplaySender").textContent = user?.uid || "N/A";
-    });
+    buildUI();
+    setupHandlers();
   </script>
 </body>
 </html>
