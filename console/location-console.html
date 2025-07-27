@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>MeetSafe Location Console</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: sans-serif; }
+    .log { height: 200px; overflow-y: scroll; font-size: 0.875rem; background: #111; color: #0f0; padding: 1rem; border-radius: 0.5rem; }
+    #versionLabel { position: absolute; top: 1rem; right: 1rem; font-size: 0.875rem; color: #555; }
+  </style>
+</head>
+<body class="p-6 bg-gray-100 space-y-6">
+
+  <div id="versionLabel">v.27.7.25.1</div>
+  <h1 class="text-2xl font-bold">MeetSafe Location Deviation Console</h1>
+
+  <div>
+    <label class="block">Set Starting Location:</label>
+    <input id="startLat" class="border p-1 rounded mr-2" placeholder="Latitude" />
+    <input id="startLng" class="border p-1 rounded mr-2" placeholder="Longitude" />
+    <button id="startBtn" class="bg-blue-500 text-white px-3 py-1 rounded">Start Check-In</button>
+  </div>
+
+  <div>
+    <button id="endBtn" class="bg-red-500 text-white px-3 py-1 mt-2 rounded">End Rendezvous</button>
+    <!-- Future: Prompt for PIN -->
+  </div>
+
+  <div id="deviationPrompt" class="hidden p-4 mt-4 bg-yellow-100 border border-yellow-300 rounded">
+    <p class="font-semibold">You've moved from your check-in location. Are you okay?</p>
+    <button id="okBtn" class="bg-green-500 text-white px-3 py-1 m-1 rounded">Yes</button>
+    <button id="notOkBtn" class="bg-red-500 text-white px-3 py-1 m-1 rounded">No</button>
+  </div>
+
+  <div>
+    <h3 class="font-semibold">Logs</h3>
+    <div id="log" class="log"></div>
+  </div>
+
+  <script>
+    let startCoords = null;
+    let pollingInterval = null;
+    const log = (msg) => {
+      const line = document.createElement("div");
+      line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+      document.getElementById("log").appendChild(line);
+      document.getElementById("log").scrollTop = document.getElementById("log").scrollHeight;
+    };
+
+    const getCurrentLocation = (cb) => {
+      if (!navigator.geolocation) {
+        log("Geolocation not supported.");
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => cb(pos.coords),
+        (err) => log("Error getting location: " + err.message),
+        { enableHighAccuracy: false }
+      );
+    };
+
+    const distanceMeters = (lat1, lon1, lat2, lon2) => {
+      const R = 6371e3; // m
+      const toRad = (x) => (x * Math.PI) / 180;
+      const φ1 = toRad(lat1), φ2 = toRad(lat2);
+      const Δφ = toRad(lat2 - lat1);
+      const Δλ = toRad(lon2 - lon1);
+      const a = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    };
+
+    const checkDeviation = () => {
+      getCurrentLocation((coords) => {
+        const { latitude, longitude } = coords;
+        const dist = distanceMeters(startCoords.lat, startCoords.lng, latitude, longitude);
+        log(`Current location: (${latitude.toFixed(5)}, ${longitude.toFixed(5)}), Deviation: ${dist.toFixed(1)}m`);
+        if (dist > 50) {
+          document.getElementById("deviationPrompt").classList.remove("hidden");
+          log("Deviation detected! Prompting user...");
+        }
+      });
+    };
+
+    document.getElementById("startBtn").onclick = () => {
+      const lat = parseFloat(document.getElementById("startLat").value);
+      const lng = parseFloat(document.getElementById("startLng").value);
+      if (isNaN(lat) || isNaN(lng)) return alert("Enter valid start coordinates.");
+      startCoords = { lat, lng };
+      log(`Check-in started at (${lat}, ${lng})`);
+      if (pollingInterval) clearInterval(pollingInterval);
+      pollingInterval = setInterval(checkDeviation, 2 * 60 * 1000); // every 2 mins
+    };
+
+    document.getElementById("endBtn").onclick = () => {
+      clearInterval(pollingInterval);
+      log("Rendezvous ended.");
+      alert("Rendezvous Ended. [PIN prompt placeholder]");
+    };
+
+    document.getElementById("okBtn").onclick = () => {
+      document.getElementById("deviationPrompt").classList.add("hidden");
+      getCurrentLocation((coords) => {
+        startCoords = { lat: coords.latitude, lng: coords.longitude };
+        log("User confirmed OK. New baseline location recorded.");
+      });
+    };
+
+    document.getElementById("notOkBtn").onclick = () => {
+      document.getElementById("deviationPrompt").classList.add("hidden");
+      log("User indicated NOT OK. Follow-up action should be triggered.");
+    };
+  </script>
+</body>
+</html>
