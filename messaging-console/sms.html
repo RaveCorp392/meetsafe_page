@@ -69,7 +69,12 @@
         const res = await fetch('http://127.0.0.1:5000/send-sms', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ to, body, messageId })
+          body: JSON.stringify({
+            to,
+            body,
+            messageId,
+            from: "+14632238876" // Explicit sender
+          })
         });
 
         const result = await res.json();
@@ -83,8 +88,8 @@
       }
     };
 
-    // For testing only
-    sendTwilioSms("+61400111222", "Test message from console", "mock-msg-id-001");
+    // For testing only: Send to target recipient number
+    sendTwilioSms("+61400322325", "Test message from console", "mock-msg-id-001");
   </script>
 </body>
 </html>
