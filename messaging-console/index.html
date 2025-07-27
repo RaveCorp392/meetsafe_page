@@ -51,37 +51,36 @@
       el.scrollTop = el.scrollHeight;
     };
 
+    async function sendTwilioSms(to, body, messageId, type = 'Direct SMS') {
+      log(`Twilio: Attempting to send ${type} to ${to} (messageId: ${messageId})`, 'info');
+      try {
+        const res = await fetch('http://127.0.0.1:5000/send-sms', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to, body, messageId })
+        });
+        const result = await res.json();
+        if (res.ok && result.status === 'success') {
+          log(`✅ SMS sent to ${to}. SID: ${result.sid}`);
+        } else {
+          throw new Error(result.error || 'Unknown error');
+        }
+      } catch (err) {
+        log(`❌ Failed to send SMS: ${err.message}`, 'error');
+      }
+    }
+
     document.getElementById('sendBtn').addEventListener('click', () => {
       const to = document.getElementById('recipient').value.trim();
       const body = document.getElementById('message').value.trim();
+      const messageId = `manual-${Date.now()}`;
 
       if (!to || !body) {
         log('Both phone number and message body are required.', 'error');
         return;
       }
 
-      fetch('http://127.0.0.1:5000/send-sms', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          to,
-          body,
-          messageId: `manual-${Date.now()}`
-        })
-      })
-      .then(res => res.json())
-      .then(result => {
-        if (result.status === 'success') {
-          log(`✅ SMS sent to ${to}. SID: ${result.sid}`);
-        } else {
-          log(`❌ Failed to send SMS: ${result.error}`, 'error');
-        }
-      })
-      .catch(err => {
-        log(`❌ Network error: ${err.message}`, 'error');
-      });
+      sendTwilioSms(to, body, messageId);
     });
   </script>
 </body>
