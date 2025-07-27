@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>MeetSafe Messaging Console (Sender)</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script type="module" src="./full-sender-console.js"></script>
   <style>
     body {
       font-family: 'Inter', sans-serif;
@@ -50,8 +49,6 @@
     <input id="contactPhone" type="tel" class="input-field" placeholder="Contact Phone (for SMS fallback)"/>
     <div class="flex space-x-2 mt-2">
       <button id="addContactBtn" class="button-primary bg-purple-500">Add Contact</button>
-      <button id="updateContactBtn" class="button-primary bg-orange-500 hidden">Save Changes</button>
-      <button id="cancelEditBtn" class="button-primary bg-gray-500 hidden">Cancel Edit</button>
     </div>
     <ul id="contactsList" class="list-disc pl-5 text-sm mt-4"></ul>
   </div>
@@ -87,5 +84,144 @@
     <h2 class="text-lg font-semibold mb-2">Twilio SMS Log</h2>
     <div id="twilioSmsLog" class="log-area bg-purple-900 text-white p-4 h-64 overflow-y-scroll text-sm rounded-lg shadow-inner">Twilio log...</div>
   </div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+    import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+
+    const log = (msg, type = 'info', el = 'monitorLogSender') => {
+      const out = document.getElementById(el);
+      const time = new Date().toLocaleTimeString();
+      const line = document.createElement('div');
+      line.className = `text-${type === 'error' ? 'red' : 'green'}-400`;
+      line.innerHTML = `[${time}] ${msg}`;
+      out.appendChild(line);
+      out.scrollTop = out.scrollHeight;
+    };
+
+    const contacts = [];
+
+    function updateContactList() {
+      const ul = document.getElementById('contactsList');
+      const select = document.getElementById('recipientContact');
+      ul.innerHTML = '';
+      select.innerHTML = '<option value="">Select a Contact</option>';
+      contacts.forEach((c, i) => {
+        ul.innerHTML += `<li>${c.name} (${c.method}): ${c.email || ''} ${c.phone || ''}</li>`;
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = c.name;
+        select.appendChild(opt);
+      });
+    }
+
+    document.getElementById('addContactBtn').addEventListener('click', () => {
+      const name = document.getElementById('contactName').value.trim();
+      const email = document.getElementById('contactEmail').value.trim();
+      const phone = document.getElementById('contactPhone').value.trim();
+      const method = email ? 'app' : 'sms';
+      if (!name || (!email && !phone)) {
+        log('❌ Contact must have name and at least email or phone', 'error');
+        return;
+      }
+      contacts.push({ name, email, phone, method });
+      updateContactList();
+      log(`✅ Contact added: ${name}`);
+    });
+
+    document.getElementById('sendMessageBtn').addEventListener('click', async () => {
+      const index = document.getElementById('recipientContact').value;
+      const contact = contacts[index];
+      const content = document.getElementById('messageContent').value;
+      const rendezvousId = document.getElementById('testRendezvousIdSender').value;
+      const mode = document.querySelector('input[name="deliverySim"]:checked').value;
+      const messageId = `m-${Date.now()}`;
+
+      if (!contact || !content || !rendezvousId) {
+        log('❌ Missing message details', 'error');
+        return;
+      }
+
+      log(`📤 Sending to ${contact.name} via ${contact.method}`, 'info');
+
+      if (contact.method === 'app' && mode === 'failure' && contact.phone) {
+        log(`⚠️ In-app failed. Fallback to SMS in 10s...`, 'warning');
+        setTimeout(() => {
+          sendTwilioSms(contact.phone, content, messageId);
+        }, 10000);
+      } else if (contact.method === 'sms') {
+        sendTwilioSms(contact.phone, content, messageId);
+      } else {
+        log(`✅ Simulated in-app delivery to ${contact.name}`);
+      }
+    });
+
+    async function sendTwilioSms(to, body, messageId) {
+      log(`📨 Sending SMS to ${to}`, 'info', 'twilioSmsLog');
+      try {
+        const res = await fetch('http://127.0.0.1:5000/send-sms', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to, body, messageId })
+        });
+        const result = await res.json();
+        if (res.ok && result.status === 'success') {
+          log(`✅ SMS sent. SID: ${result.sid}`, 'success', 'twilioSmsLog');
+        } else {
+          throw new Error(result.error || 'Unknown error');
+        }
+      } catch (err) {
+        log(`❌ SMS failed: ${err.message}`, 'error', 'twilioSmsLog');
+      }
+    }
+
+    // Firebase setup
+    const app = initializeApp({
+      apiKey: "AIzaSyAV52Ads-ckhKuGsKvHoYYTrDIqBHMHusQ",
+      authDomain: "meetsafe-clean-core.firebaseapp.com",
+      projectId: "meetsafe-clean-core",
+      storageBucket: "meetsafe-clean-core.appspot.com",
+      messagingSenderId: "970833854934",
+      appId: "1:970833854934:web:5ae847503baa2c6c552477"
+    });
+
+    const auth = getAuth(app);
+
+    document.getElementById("signUpBtnSender").addEventListener("click", async () => {
+      const email = document.getElementById("authEmailSender").value;
+      const pw = document.getElementById("authPasswordSender").value;
+      try {
+        await createUserWithEmailAndPassword(auth, email, pw);
+        log("✅ Signed up", "success");
+      } catch (err) {
+        log(`❌ ${err.message}`, "error");
+      }
+    });
+
+    document.getElementById("signInBtnSender").addEventListener("click", async () => {
+      const email = document.getElementById("authEmailSender").value;
+      const pw = document.getElementById("authPasswordSender").value;
+      try {
+        await signInWithEmailAndPassword(auth, email, pw);
+        log("✅ Signed in", "success");
+      } catch (err) {
+        log(`❌ ${err.message}`, "error");
+      }
+    });
+
+    document.getElementById("signOutBtnSender").addEventListener("click", async () => {
+      try {
+        await signOut(auth);
+        log("👋 Signed out", "info");
+      } catch (err) {
+        log(`❌ ${err.message}`, "error");
+      }
+    });
+
+    onAuthStateChanged(auth, (user) => {
+      document.getElementById("currentUserDisplaySender").textContent = user?.email || "Not authenticated";
+      document.getElementById("currentUidDisplaySender").textContent = user?.uid || "N/A";
+    });
+  </script>
 </body>
 </html>
