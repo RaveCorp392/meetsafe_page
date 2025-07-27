@@ -37,6 +37,10 @@
     <div id="twilioSmsLog" class="log-area bg-purple-900 text-white p-4 h-64 overflow-y-scroll text-sm rounded-lg shadow-inner">Simulated Twilio activity...</div>
   </div>
 
+  <div class="mt-6">
+    <button onclick="simulateFallbackSms()" class="button-primary">Trigger SMS Fallback Now</button>
+  </div>
+
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
     import { getAuth } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
@@ -73,7 +77,7 @@
             to,
             body,
             messageId,
-            from: "+14632238876" // Explicit sender
+            from: "+14632238876"
           })
         });
 
@@ -88,7 +92,6 @@
       }
     };
 
-    // Custom failover simulation — no auto message on load
     window.simulateFallbackSms = () => {
       const testNumber = "+61400322325";
       const message = "Test fallback SMS from MeetSafe";
@@ -96,9 +99,5 @@
       sendTwilioSms(testNumber, message, mockId);
     };
   </script>
-
-  <div class="mt-6">
-    <button onclick="simulateFallbackSms()" class="button-primary">Trigger SMS Fallback Now</button>
-  </div>
 </body>
 </html>
