@@ -88,8 +88,17 @@
       }
     };
 
-    // For testing only: Send to target recipient number
-    sendTwilioSms("+61400322325", "Test message from console", "mock-msg-id-001");
+    // Custom failover simulation — no auto message on load
+    window.simulateFallbackSms = () => {
+      const testNumber = "+61400322325";
+      const message = "Test fallback SMS from MeetSafe";
+      const mockId = "msg-fallback-test-001";
+      sendTwilioSms(testNumber, message, mockId);
+    };
   </script>
+
+  <div class="mt-6">
+    <button onclick="simulateFallbackSms()" class="button-primary">Trigger SMS Fallback Now</button>
+  </div>
 </body>
 </html>
