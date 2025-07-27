@@ -33,6 +33,10 @@
   <div class="text-red-600 font-semibold">🔥 Full feature set loaded: Auth, Contacts, In-App + Fallback SMS</div>
 
   <div id="console"></div>
+  <div>
+    <h2 class="text-lg font-semibold mb-2">Twilio SMS Outbound Log (Conceptual)</h2>
+    <div id="twilioSmsLog" class="log-area bg-purple-900 text-white p-4 h-64 overflow-y-scroll text-sm rounded-lg shadow-inner">Simulated Twilio activity...</div>
+  </div>
 
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
@@ -55,39 +59,35 @@
     const uid = () => auth.currentUser?.uid;
     const el = id => document.getElementById(id);
 
-    const state = {
-      contacts: [],
-      selectedContact: null,
-    };
-
-    function log(msg, elId = "monitorLogSender") {
+    const log = (msg, elId = "twilioSmsLog") => {
       const elLog = document.getElementById(elId);
       if (!elLog) return;
       const ts = new Date().toLocaleTimeString();
       elLog.innerHTML += `<div class='text-green-400'>[${ts}] ${msg}</div>`;
       elLog.scrollTop = elLog.scrollHeight;
-    }
+    };
 
-    function sendTwilioSms(to, body, messageId) {
-      log(`📨 Sending SMS to ${to}`, 'twilioSmsLog');
-      fetch('http://127.0.0.1:5000/send-sms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to, body, messageId })
-      })
-        .then(res => {
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          return res.json();
-        })
-        .then(result => {
-          if (result.status === 'success') {
-            log(`✅ SMS sent. SID: ${result.sid}`, 'twilioSmsLog');
-          } else {
-            throw new Error(result.error || 'Unknown error');
-          }
-        })
-        .catch(err => log(`❌ SMS failed: ${err.message}`, 'twilioSmsLog'));
-    }
+    const sendTwilioSms = async (to, body, messageId) => {
+      log(`📨 Sending SMS to ${to}`);
+      try {
+        const res = await fetch('http://127.0.0.1:5000/send-sms', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to, body, messageId })
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const result = await res.json();
+        if (result.status === 'success') {
+          log(`✅ SMS sent. SID: ${result.sid}`);
+        } else {
+          throw new Error(result.error || 'Unknown error');
+        }
+      } catch (err) {
+        log(`❌ SMS failed: ${err.message}`);
+      }
+    };
   </script>
 </body>
 </html>
