@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MeetSafe Messaging Console (Sender)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="module" src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
+  <script type="module" src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"></script>
+  <script type="module" src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"></script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f3f4f6;
+    }
+    .log-area::-webkit-scrollbar {
+      width: 8px;
+    }
+    .log-area::-webkit-scrollbar-thumb {
+      background: #a0aec0;
+      border-radius: 10px;
+    }
+    .button-primary {
+      @apply bg-blue-500 text-white px-4 py-2 rounded shadow hover:bg-blue-600 transition-colors;
+    }
+    .input-field {
+      @apply block w-full my-2 p-2 border rounded focus:ring-blue-500 focus:border-blue-500;
+    }
+  </style>
+</head>
+<body class="p-6 space-y-8">
+  <h1 class="text-3xl font-bold">MeetSafe Messaging Console (Sender)</h1>
+  <div class="text-red-600 font-semibold">🔥 Full feature set loaded: Auth, Contacts, In-App + Fallback SMS</div>
+
+  <div id="console"></div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+    import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+    import { getFirestore, collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, addDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAV52Ads-ckhKuGsKvHoYYTrDIqBHMHusQ",
+      authDomain: "meetsafe-clean-core.firebaseapp.com",
+      projectId: "meetsafe-clean-core",
+      storageBucket: "meetsafe-clean-core.appspot.com",
+      messagingSenderId: "970833854934",
+      appId: "1:970833854934:web:5ae847503baa2c6c552477"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const uid = () => auth.currentUser?.uid;
+    const el = id => document.getElementById(id);
+
+    const state = {
+      contacts: [],
+      selectedContact: null,
+    };
+
+    function log(msg, elId = "monitorLogSender") {
+      const elLog = document.getElementById(elId);
+      if (!elLog) return;
+      const ts = new Date().toLocaleTimeString();
+      elLog.innerHTML += `<div class='text-green-400'>[${ts}] ${msg}</div>`;
+      elLog.scrollTop = elLog.scrollHeight;
+    }
+
+    function sendTwilioSms(to, body, messageId) {
+      log(`📨 Sending SMS to ${to}`, 'twilioSmsLog');
+      fetch('http://127.0.0.1:5000/send-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to, body, messageId })
+      })
+        .then(res => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.json();
+        })
+        .then(result => {
+          if (result.status === 'success') {
+            log(`✅ SMS sent. SID: ${result.sid}`, 'twilioSmsLog');
+          } else {
+            throw new Error(result.error || 'Unknown error');
+          }
+        })
+        .catch(err => log(`❌ SMS failed: ${err.message}`, 'twilioSmsLog'));
+    }
+  </script>
+</body>
+</html>
