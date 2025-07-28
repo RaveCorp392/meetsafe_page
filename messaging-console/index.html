@@ -65,6 +65,12 @@
     <input id="contactName" class="input-field" placeholder="Contact Name"/>
     <input id="contactEmail" type="email" class="input-field" placeholder="Contact Email (for app)"/>
     <input id="contactPhone" type="tel" class="input-field" placeholder="Contact Phone (for SMS fallback)"/>
+    <div class="mt-4">
+      <label class="inline-flex items-center">
+        <input type="checkbox" id="simulateNoAppAccount" class="form-checkbox h-5 w-5 text-blue-600 rounded">
+        <span class="ml-2 text-gray-700">Simulate No In-App Account (for email invite testing)</span>
+      </label>
+    </div>
     <div class="flex space-x-2 mt-2">
       <button id="addContactBtn" class="button-primary bg-purple-500">Add Contact</button>
       <button id="updateContactBtn" class="button-primary bg-orange-500 hidden">Save Changes</button>
@@ -104,11 +110,11 @@
     <div id="monitorLogSender" class="log-area bg-black text-white p-4 h-64 overflow-y-scroll text-sm rounded-lg shadow-inner">Monitoring log...</div>
   </div>
 
-  <!-- Twilio SMS Log (Conceptual) -->
-  <div>
+  <!-- Removed Twilio SMS Log (Conceptual) -->
+  <!-- <div>
     <h2 class="text-lg font-semibold mb-2">Twilio SMS Outbound Log (Conceptual)</h2>
     <div id="twilioSmsLog" class="log-area bg-purple-900 text-white p-4 h-64 overflow-y-scroll text-sm rounded-lg shadow-inner">Simulated Twilio activity...</div>
-  </div>
+  </div> -->
 
   <!-- Upgrade Prompt Modal -->
   <div id="upgradeModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
@@ -172,40 +178,7 @@
     };
 
     // --- Twilio SMS Function (Conceptual Client-Side) ---
-    // Define this function at the top-level scope of the module
-    function sendTwilioSms(toPhoneNumber, messageBody, messageId, type) {
-        logToMonitor(`Twilio: Attempting to send ${type} to ${toPhoneNumber} for message ID: ${messageId}`, "info", "twilioSmsLog");
-        const twilioProxyUrl = "http://127.0.0.1:5000/send-sms"; // This should be your proxy URL
-
-        if (twilioProxyUrl === "http://127.0.0.1:5000/send-sms" && !toPhoneNumber.includes('+')) {
-            logToMonitor("Twilio: Warning: Phone number might be invalid for real SMS. Ensure it includes country code (e.g., +61...).", "warning", "twilioSmsLog");
-        }
-
-        fetch(twilioProxyUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                to: toPhoneNumber,
-                body: messageBody,
-                messageId: messageId
-            }),
-        })
-        .then(res => {
-            if (!res.ok) {
-                return res.json().then(err => { throw new Error(err.error || res.statusText); });
-            }
-            return res.json();
-        })
-        .then(result => {
-            logToMonitor(`Twilio: ${type} sent successfully to ${toPhoneNumber}. Response: ${JSON.stringify(result)}`, "success", "twilioSmsLog");
-        })
-        .catch(error => {
-            logToMonitor(`Twilio: Failed to send ${type} to ${toPhoneNumber}. Error: ${error.message}`, "error", "twilioSmsLog");
-        });
-    }
-
+    // Removed: sendTwilioSms function definition
 
     // --- Simulate In-App Delivery Function ---
     // Define this function at the top-level scope of the module
@@ -233,18 +206,8 @@
           if (!messageData.delivered && messageData.method === "app") {
             logToMonitor(`Sender: In-app message to ${recipientContact.name} not confirmed delivered within ${fallbackCheckTimeout / 1000}s. Checking fallback...`, "warning", "monitorLogSender");
 
-            if (isProUserSender || (!isProUserSender && recipientContact.phoneNumber)) {
-              if (recipientContact.phoneNumber) {
-                 logToMonitor(`Sender: SMS fallback initiated for ${recipientContact.name}.`, "info", "monitorLogSender");
-                 sendTwilioSms(recipientContact.phoneNumber, messageData.content, messageRef.id, "Fallback SMS");
-                 await updateDoc(messageRef, { fallback: "sms", delivered: true });
-                 logToMonitor(`Sender: SMS fallback to ${recipientContact.name}'s phone number triggered.`, "success", "monitorLogSender");
-              } else {
-                 logToMonitor(`Sender: Cannot fallback to SMS for ${recipientContact.name}: No phone number available.`, "warning", "monitorLogSender");
-              }
-            } else {
-              logToMonitor(`Sender: SMS fallback not available for Free User (${recipientContact.name}) without a phone number.`, "warning", "monitorLogSender");
-            }
+            // Removed all SMS fallback logic from here, as per request
+            logToMonitor(`Sender: SMS fallback (currently disabled) would have triggered for ${recipientContact.name}.`, "info", "monitorLogSender");
           }
         }
       }, fallbackCheckTimeout);
