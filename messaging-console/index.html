@@ -64,7 +64,8 @@
     <h2 class="text-xl font-semibold mb-3">Trusted Contacts</h2>
     <input id="contactName" class="input-field" placeholder="Contact Name"/>
     <input id="contactEmail" type="email" class="input-field" placeholder="Contact Email (for app)"/>
-    <input id="contactPhone" type="tel" class="input-field" placeholder="Contact Phone (for SMS fallback)"/>
+    <!-- Removed: Contact Phone is now only relevant for SMS fallback, which is disabled -->
+    <!-- <input id="contactPhone" type="tel" class="input-field" placeholder="Contact Phone (for SMS fallback)"/> -->
     <div class="mt-4">
       <label class="inline-flex items-center">
         <input type="checkbox" id="simulateNoAppAccount" class="form-checkbox h-5 w-5 text-blue-600 rounded">
@@ -177,7 +178,12 @@
       }
     };
 
-    // Removed sendTwilioSms function definition
+    // --- Placeholder for Email Invite Sending ---
+    // This function will simulate sending an email invite
+    function sendEmailInviteStub(toEmail, senderName, inviteId) {
+        logToMonitor(`Email: Simulated email invite sent to ${toEmail} from ${senderName} for invite ID: ${inviteId}`, "info", "monitorLogSender");
+        // In a real application, this would involve a server-side call to an email service (e.g., SendGrid, Firebase Extensions)
+    }
 
     // --- Simulate In-App Delivery Function ---
     // Define this function at the top-level scope of the module
@@ -205,7 +211,7 @@
           if (!messageData.delivered && messageData.method === "app") {
             logToMonitor(`Sender: In-app message to ${recipientContact.name} not confirmed delivered within ${fallbackCheckTimeout / 1000}s. Checking fallback...`, "warning", "monitorLogSender");
 
-            // Removed all SMS fallback logic from here, as per request
+            // No SMS fallback here as per current request (removed sendTwilioSms calls)
             logToMonitor(`Sender: SMS fallback (currently disabled) would have triggered for ${recipientContact.name}.`, "info", "monitorLogSender");
           }
         }
@@ -387,10 +393,10 @@
       const name = contactNameInput?.value.trim() || '';
       const email = contactEmailInput?.value.trim() || '';
       const phone = contactPhoneInput?.value.trim() || '';
-      let method = "app";
-      if (!email && phone) {
+      let method = "app"; // Default to app if email is provided
+      if (!email && phone) { // If no email but phone is provided, it's an SMS contact
           method = "sms";
-      } else if (!email && !phone) {
+      } else if (!email && !phone) { // If neither, it's an invalid contact
           logToMonitor("Sender: Contact must have at least an email or a phone number.", "warning", "monitorLogSender");
           return;
       }
@@ -433,11 +439,17 @@
         });
         logToMonitor(`Sender: Created public invite for ${email || name} in publicInvites.`, "info", "monitorLogSender");
 
-        if (method === "app") {
+        // Determine if an email invite should be sent
+        const simulateNoAppAccountCheckbox = document.getElementById("simulateNoAppAccount");
+        const shouldSendEmailInvite = (method === "app" && simulateNoAppAccountCheckbox?.checked) || (method === "sms");
+
+        if (shouldSendEmailInvite && email) { // Only send email invite if an email is available
+            sendEmailInviteStub(email, currentUserSender?.email || 'Anonymous Sender', docRef.id);
+            logToMonitor(`Sender: Simulated email invite sent to ${email}.`, "info", "monitorLogSender");
+        } else if (method === "app" && !shouldSendEmailInvite) {
             logToMonitor(`Sender: Simulated in-app invite sent to ${email || name}.`, "info", "monitorLogSender");
-        } else if (method === "sms") {
-            logToMonitor(`Sender: Simulated email invite sent to ${email || name} (for SMS contact).`, "info", "monitorLogSender");
         }
+
 
         resetContactForm();
       } catch (error) {
@@ -671,9 +683,7 @@
           } else if (recipientContact.method === "sms") {
             await updateDoc(messageRef, { delivered: true });
             logToMonitor(`Sender: Direct SMS to ${recipientContact.name} simulated as sent.`, "success", "monitorLogSender");
-            if (recipientContact.phoneNumber) {
-                sendTwilioSms(recipientContact.phoneNumber, messageContent, messageRef.id, "Direct SMS");
-            }
+            // Removed direct sendTwilioSms call here
           }
 
         } catch (error) {
