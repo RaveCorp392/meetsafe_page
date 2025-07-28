@@ -426,25 +426,27 @@
         logToMonitor(`Sender: Contact '${name}' added successfully to your list.`, "success", "monitorLogSender");
         
         const publicInviteRef = collection(db, `artifacts/${appId}/publicInvites`);
+        // Determine invite type for public invite document
+        const simulateNoAppAccountCheckbox = document.getElementById("simulateNoAppAccount");
+        const inviteType = (method === "app" && simulateNoAppAccountCheckbox?.checked) ? "email_invite" : "in_app_invite";
+
         await addDoc(publicInviteRef, {
             senderUid: currentUserIdSender,
             senderEmail: currentUserSender?.email || 'Anonymous Sender',
             recipientEmail: email,
             recipientPhone: phone || null,
-            inviteStatus: "pending",
+            inviteStatus: "pending", // Initial pending status
             createdAt: Timestamp.now(),
-            contactDocId: docRef.id
+            contactDocId: docRef.id,
+            type: inviteType // Store the determined invite type
         });
-        logToMonitor(`Sender: Created public invite for ${email || name} in publicInvites.`, "info", "monitorLogSender");
+        logToMonitor(`Sender: Created public invite (${inviteType}) for ${email || name} in publicInvites.`, "info", "monitorLogSender");
 
-        // Determine if an email invite should be sent
-        const simulateNoAppAccountCheckbox = document.getElementById("simulateNoAppAccount");
-        const shouldSendEmailInvite = (method === "app" && simulateNoAppAccountCheckbox?.checked) || (method === "sms");
-
-        if (shouldSendEmailInvite && email) { // Only send email invite if an email is available
+        // Simulate sending invite/notification based on the determined type
+        if (inviteType === "email_invite" && email) { // Only send email invite if an email is available
             sendEmailInviteStub(email, currentUserSender?.email || 'Anonymous Sender', docRef.id);
             logToMonitor(`Sender: Simulated email invite sent to ${email}.`, "info", "monitorLogSender");
-        } else if (method === "app" && !shouldSendEmailInvite) {
+        } else { // This covers in_app_invite
             logToMonitor(`Sender: Simulated in-app invite sent to ${email || name}.`, "info", "monitorLogSender");
         }
 
@@ -492,6 +494,7 @@
                 email: email || null,
                 phoneNumber: phone || null,
                 method
+                // inviteStatus is not updated on edit unless explicitly intended
             });
             logToMonitor(`Sender: Contact '${name}' updated successfully.`, "success", "monitorLogSender");
             resetContactForm();
