@@ -64,6 +64,7 @@
     <h2 class="text-xl font-semibold mb-3">Trusted Contacts</h2>
     <input id="contactName" class="input-field" placeholder="Contact Name"/>
     <input id="contactEmail" type="email" class="input-field" placeholder="Contact Email (for app)"/>
+    <input id="contactPhone" type="tel" class="input-field" placeholder="Contact Phone (for SMS fallback)"/>
     <div class="mt-4">
       <label class="inline-flex items-center">
         <input type="checkbox" id="simulateNoAppAccount" class="form-checkbox h-5 w-5 text-blue-600 rounded">
@@ -90,16 +91,7 @@
       </select>
     <input id="messageContent" class="input-field" placeholder="Message content"/>
     <input id="testRendezvousIdSender" class="input-field" placeholder="Test Rendezvous ID (e.g., 'test-rdv-123')" value="test-rdv-123"/>
-    <div class="mt-2">
-      <label class="inline-flex items-center mr-4">
-        <input type="radio" name="deliverySim" value="success" checked class="form-radio h-4 w-4 text-green-600">
-        <span class="ml-2 text-gray-700">Simulate In-App Success</span>
-      </label>
-      <label class="inline-flex items-center">
-        <input type="radio" name="deliverySim" value="failure" class="form-radio h-4 w-4 text-red-600">
-        <span class="ml-2 text-gray-700">Simulate In-App Failure (for fallback)</span>
-      </label>
-    </div>
+    <!-- Removed: Delivery Simulation radio buttons as new logic handles it -->
     <button id="sendMessageBtn" class="button-primary bg-green-600 mt-4">Send Message</button>
   </div>
 
@@ -109,11 +101,11 @@
     <div id="monitorLogSender" class="log-area bg-black text-white p-4 h-64 overflow-y-scroll text-sm rounded-lg shadow-inner">Monitoring log...</div>
   </div>
 
-  <!-- Removed Twilio SMS Log (Conceptual) -->
-  <!-- <div>
-    <h2 class="text-lg font-semibold mb-2">Twilio SMS Outbound Log (Conceptual)</h2>
-    <div id="twilioSmsLog" class="log-area bg-purple-900 text-white p-4 h-64 overflow-y-scroll text-sm rounded-lg shadow-inner">Simulated Twilio activity...</div>
-  </div> -->
+  <!-- Twilio SMS Log -->
+  <div>
+    <h2 class="text-lg font-semibold mb-2">Twilio SMS Outbound Log</h2>
+    <div id="twilioSmsLog" class="log-area bg-purple-900 text-white p-4 h-64 overflow-y-scroll text-sm rounded-lg shadow-inner">Twilio activity...</div>
+  </div>
 
   <!-- Upgrade Prompt Modal -->
   <div id="upgradeModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
@@ -128,7 +120,7 @@
     // IMPORTANT: Import statements must be at the very top-level of the module
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getFirestore, collection, addDoc, updateDoc, doc, query, where, getDocs, onSnapshot, Timestamp, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"; // Added deleteDoc
+    import { getFirestore, collection, addDoc, updateDoc, doc, query, where, getDocs, onSnapshot, Timestamp, deleteDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"; // Added setDoc for acks
 
     // Firebase configuration provided by the Canvas environment
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -169,12 +161,50 @@
         else if (type === "error") colorClass = "text-red-400";
         else if (type === "warning") colorClass = "text-yellow-400";
         else if (type === "invite") colorClass = "text-purple-300"; // New type for invites
+        else if (type === "twilio") colorClass = "text-purple-400"; // New type for Twilio logs
 
         line.innerHTML = `<span class="${colorClass}">[${time}] ${msg}</span>`;
         el.appendChild(line);
         el.scrollTop = el.scrollHeight;
       }
     };
+
+    // --- Twilio SMS Function (Client-Side) ---
+    // This function sends the actual SMS via your local proxy
+    function sendTwilioSms(toPhoneNumber, messageBody, messageId, type) {
+        logToMonitor(`Twilio: Attempting to send ${type} to ${toPhoneNumber} for message ID: ${messageId}`, "twilio", "twilioSmsLog");
+        const twilioProxyUrl = "http://127.0.0.1:5000/send-sms"; // This should be your proxy URL
+
+        if (!toPhoneNumber.includes('+')) { // Basic validation
+            logToMonitor("Twilio: Warning: Phone number might be invalid for real SMS. Ensure it includes country code (e.g., +61...).", "warning", "twilioSmsLog");
+        }
+
+        fetch(twilioProxyUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                to: toPhoneNumber,
+                body: messageBody,
+                messageId: messageId
+            }),
+        })
+        .then(res => {
+            if (!res.ok) {
+                // If response is not OK, try to parse error message from JSON
+                return res.json().then(err => { throw new Error(err.error || res.statusText); });
+            }
+            return res.json();
+        })
+        .then(result => {
+            logToMonitor(`Twilio: ${type} sent successfully to ${toPhoneNumber}. SID: ${result.sid}`, "success", "twilioSmsLog");
+        })
+        .catch(error => {
+            logToMonitor(`Twilio: Failed to send ${type} to ${toPhoneNumber}. Error: ${error.message}`, "error", "twilioSmsLog");
+        });
+    }
+
 
     // --- Placeholder for Email Invite Sending ---
     // This function will simulate sending an email invite
@@ -183,37 +213,68 @@
         // In a real application, this would involve a server-side call to an email service (e.g., SendGrid, Firebase Extensions)
     }
 
-    // --- Simulate In-App Delivery Function ---
-    // Define this function at the top-level scope of the module
-    function simulateInAppDelivery(messageRef, success, recipientContact, rendezvousId) {
-      const deliveryAttemptTimeout = 5000;
-      const fallbackCheckTimeout = 10000;
+    // --- Send App Message with Fallback Logic ---
+    // This function handles sending the in-app message and managing the ACK/SMS fallback
+    async function sendAppMessageWithFallback(recipientContact, messageContent, rendezvousId) {
+        const messageId = `msg-${Date.now()}`;
+        const messagesCollectionRef = collection(db, `artifacts/${appId}/messages/${rendezvousId}/messages`);
+        const ackRef = doc(db, `acks/${rendezvousId}`); // Reference to the ACK document
 
-      let delivered = false;
+        // 1. Send the in-app message (store in Firestore)
+        const messageRef = await addDoc(messagesCollectionRef, {
+            to: recipientContact.email, // In-app messages go to email
+            from: currentUserIdSender,
+            sentAt: Timestamp.now(),
+            delivered: false, // Will be updated by receiver's ACK
+            method: "app",
+            fallback: "none",
+            acknowledged: false,
+            content: messageContent,
+            recipientEmail: recipientContact.email || null,
+            recipientPhone: recipientContact.phoneNumber || null
+        });
+        logToMonitor(`Sender: In-app message initiated to ${recipientContact.name}. Message ID: ${messageRef.id}`, "info", "monitorLogSender");
 
-      setTimeout(async () => {
-        if (success) {
-          delivered = true;
-          await updateDoc(messageRef, { delivered: true });
-          logToMonitor(`Sender: In-app message to ${recipientContact.name} delivered successfully!`, "success", "monitorLogSender");
-        } else {
-          logToMonitor(`Sender: In-app message to ${recipientContact.name} failed to deliver immediately.`, "warning", "monitorLogSender");
+        // 2. Listen for ACK from receiver
+        let ackReceived = false;
+        const unsubscribeAck = onSnapshot(ackRef, (docSnap) => {
+            if (docSnap.exists() && docSnap.data().received === true) {
+                ackReceived = true;
+                logToMonitor(`Sender: ✅ In-app message acknowledged by ${recipientContact.name}. No SMS needed.`, "success", "monitorLogSender");
+                clearTimeout(fallbackTimeout); // Clear the SMS fallback timer
+                unsubscribeAck(); // Stop listening for ACK
+            }
+        }, (error) => {
+            logToMonitor(`Sender: Error listening for ACK: ${error.message}`, "error", "monitorLogSender");
+            // If there's an error listening, assume no ACK and proceed with fallback
+            if (!ackReceived) {
+                logToMonitor(`Sender: ACK listener error. Forcing SMS fallback...`, "warning", "monitorLogSender");
+                clearTimeout(fallbackTimeout);
+                triggerSMSFallback(recipientContact, messageContent, messageRef.id, "ACK Listener Error");
+                unsubscribeAck();
+            }
+        });
+
+        // 3. Set timeout for SMS fallback
+        const fallbackTimeout = setTimeout(() => {
+            if (!ackReceived) {
+                logToMonitor(`Sender: ⚠️ No ACK received within 10s. Triggering SMS fallback...`, "warning", "monitorLogSender");
+                triggerSMSFallback(recipientContact, messageContent, messageRef.id, "Timeout Fallback");
+                unsubscribeAck(); // Stop listening for ACK after timeout
+            }
+        }, 10000); // 10 seconds timeout
+
+        // Helper to trigger SMS fallback
+        async function triggerSMSFallback(contact, content, msgId, reason) {
+            if (contact.phoneNumber) {
+                // Update message document to reflect fallback
+                await updateDoc(messageRef, { fallback: "sms", delivered: true });
+                logToMonitor(`Sender: SMS fallback initiated for ${contact.name} (${reason}).`, "info", "monitorLogSender");
+                sendTwilioSms(contact.phoneNumber, content, msgId, "Fallback SMS");
+            } else {
+                logToMonitor(`Sender: Cannot fallback to SMS for ${contact.name}: No phone number available.`, "warning", "monitorLogSender");
+            }
         }
-      }, deliveryAttemptTimeout);
-
-      setTimeout(async () => {
-        if (!delivered) {
-          const messageSnap = await getDoc(messageRef);
-          const messageData = messageSnap.data();
-
-          if (!messageData.delivered && messageData.method === "app") {
-            logToMonitor(`Sender: In-app message to ${recipientContact.name} not confirmed delivered within ${fallbackCheckTimeout / 1000}s. Checking fallback...`, "warning", "monitorLogSender");
-
-            // No SMS fallback here as per current request (removed sendTwilioSms calls)
-            logToMonitor(`Sender: SMS fallback (currently disabled) would have triggered for ${recipientContact.name}.`, "info", "monitorLogSender");
-          }
-        }
-      }, fallbackCheckTimeout);
     }
 
 
@@ -392,9 +453,9 @@
       const email = contactEmailInput?.value.trim() || '';
       const phone = contactPhoneInput?.value.trim() || '';
       let method = "app"; // Default to app if email is provided
-      if (!email && phone) { // If no email but phone is provided, it's an SMS contact
+      if (!email && phone) {
           method = "sms";
-      } else if (!email && !phone) { // If neither, it's an invalid contact
+      } else if (!email && !phone) {
           logToMonitor("Sender: Contact must have at least an email or a phone number.", "warning", "monitorLogSender");
           return;
       }
@@ -494,7 +555,6 @@
                 email: email || null,
                 phoneNumber: phone || null,
                 method
-                // inviteStatus is not updated on edit unless explicitly intended
             });
             logToMonitor(`Sender: Contact '${name}' updated successfully.`, "success", "monitorLogSender");
             resetContactForm();
@@ -592,12 +652,14 @@
         const recipientContactSelect = document.getElementById("recipientContact");
         const messageContentInput = document.getElementById("messageContent");
         const testRendezvousIdInput = document.getElementById("testRendezvousIdSender");
-        const deliverySimRadio = document.querySelector('input[name="deliverySim"]:checked');
+        // Removed: Delivery Simulation radio buttons as new logic handles it
+        // const deliverySimRadio = document.querySelector('input[name="deliverySim"]:checked');
 
         const selectedContactId = recipientContactSelect?.value || '';
         const messageContent = messageContentInput?.value.trim() || '';
         const testRendezvousId = testRendezvousIdInput?.value.trim() || '';
-        const simulateInAppSuccess = deliverySimRadio?.value === "success";
+        // Removed: simulateInAppSuccess is now determined by actual ACK or timeout
+        // const simulateInAppSuccess = deliverySimRadio?.value === "success";
 
         if (!selectedContactId || !messageContent || !testRendezvousId) {
           logToMonitor("Sender: Please select a contact, enter message content, and a test rendezvous ID.", "warning", "monitorLogSender");
@@ -664,27 +726,29 @@
         }
 
         try {
-          const messagesCollectionRef = collection(db, `artifacts/${appId}/messages/${testRendezvousId}/messages`);
-          const messageRef = await addDoc(messagesCollectionRef, {
-            to: toIdentifier,
-            from: currentUserIdSender,
-            sentAt: Timestamp.now(),
-            delivered: false,
-            method: recipientContact.method,
-            fallback: "none",
-            acknowledged: false,
-            content: messageContent,
-            recipientEmail: recipientContact.email || null,
-            recipientPhone: recipientContact.phoneNumber || null
-          });
-          logToMonitor(`Sender: Message initiated to ${recipientContact.name} via ${recipientContact.method}. Message ID: ${messageRef.id}`, "info", "monitorLogSender");
-
+          // New logic: Call sendAppMessageWithFallback for app messages, or direct SMS for sms contacts
           if (recipientContact.method === "app") {
-            simulateInAppDelivery(messageRef, simulateInAppSuccess, recipientContact, testRendezvousId);
+            sendAppMessageWithFallback(recipientContact, messageContent, testRendezvousId);
           } else if (recipientContact.method === "sms") {
-            await updateDoc(messageRef, { delivered: true });
-            logToMonitor(`Sender: Direct SMS to ${recipientContact.name} simulated as sent.`, "success", "monitorLogSender");
-            // Removed direct sendTwilioSms call here
+            // Direct SMS send for SMS-only contacts (for Pro users)
+            const messageRef = await addDoc(collection(db, `artifacts/${appId}/messages/${testRendezvousId}/messages`), {
+                to: toIdentifier,
+                from: currentUserIdSender,
+                sentAt: Timestamp.now(),
+                delivered: true, // Considered delivered upon sending SMS
+                method: "sms",
+                fallback: "none", // Not a fallback, it's primary method
+                acknowledged: false,
+                content: messageContent,
+                recipientEmail: recipientContact.email || null,
+                recipientPhone: recipientContact.phoneNumber || null
+            });
+            logToMonitor(`Sender: Direct SMS initiated to ${recipientContact.name}. Message ID: ${messageRef.id}`, "info", "monitorLogSender");
+            if (recipientContact.phoneNumber) {
+                sendTwilioSms(recipientContact.phoneNumber, messageContent, messageRef.id, "Direct SMS");
+            } else {
+                logToMonitor(`Sender: Cannot send Direct SMS to ${recipientContact.name}: No phone number available.`, "error", "monitorLogSender");
+            }
           }
 
         } catch (error) {
