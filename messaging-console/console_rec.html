@@ -35,6 +35,15 @@
     .decline-btn {
       @apply bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600;
     }
+    .invite-type-tag {
+      @apply text-xs font-semibold px-2 py-0.5 rounded-full;
+    }
+    .in-app-tag {
+      @apply bg-purple-200 text-purple-800;
+    }
+    .email-invite-tag {
+      @apply bg-orange-200 text-orange-800;
+    }
   </style>
 </head>
 <body class="p-6 space-y-8">
@@ -285,7 +294,7 @@
         const invitesQuery = query(
             publicInvitesCollectionRef,
             where("recipientEmail", "==", receiverEmail),
-            where("inviteStatus", "==", "pending")
+            where("inviteStatus", "==", "pending") // Only listen for pending invites
         );
 
         unsubscribeInvites = onSnapshot(invitesQuery, (snapshot) => {
@@ -301,8 +310,17 @@
                     const inviteId = docSnap.id;
                     const inviteCard = document.createElement("div");
                     inviteCard.classList.add("invite-card");
+
+                    // Determine invite type for display
+                    let inviteTypeTag = '';
+                    if (inviteData.type === 'email_invite') {
+                        inviteTypeTag = `<span class="invite-type-tag email-invite-tag">Email Invite</span>`;
+                    } else { // Default or in_app_invite
+                        inviteTypeTag = `<span class="invite-type-tag in-app-tag">In-App Invite</span>`;
+                    }
+
                     inviteCard.innerHTML = `
-                        <p><strong>Invitation from:</strong> ${inviteData.senderEmail || inviteData.senderUid}</p>
+                        <p>${inviteTypeTag} <strong>Invitation from:</strong> ${inviteData.senderEmail || inviteData.senderUid}</p>
                         <p><strong>To be your safety contact.</strong></p>
                         <div class="invite-actions">
                             <button class="accept-btn" data-invite-id="${inviteId}" data-sender-uid="${inviteData.senderUid}" data-sender-email="${inviteData.senderEmail}" data-recipient-email="${inviteData.recipientEmail}" data-recipient-phone="${inviteData.recipientPhone || ''}">Accept</button>
@@ -310,7 +328,7 @@
                         </div>
                     `;
                     invitesListEl.appendChild(inviteCard);
-                    logToMonitor(`Receiver: New invitation from ${inviteData.senderEmail || inviteData.senderUid}.`, "invite", "receivedMessagesLog");
+                    logToMonitor(`Receiver: New invitation (${inviteData.type || 'in-app'}) from ${inviteData.senderEmail || inviteData.senderUid}.`, "invite", "receivedMessagesLog");
                 });
 
                 // Attach event listeners for accept/decline buttons
@@ -337,7 +355,6 @@
                             logToMonitor(`Receiver: Accepted invitation from ${senderEmail}.`, "success", "receivedMessagesLog");
 
                             // Also, add the sender as a contact for the receiver in the receiver's contacts list
-                            // This uses addDoc, which needs to be imported.
                             await addDoc(collection(db, `artifacts/${appId}/users/${currentUserIdReceiver}/contacts`), {
                                 name: senderEmail, // Use sender's email as name for simplicity
                                 email: senderEmail,
