@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MeetSafe Messaging Console (Sender)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="p-6 space-y-8 bg-gray-100 font-sans">
+  <h1 class="text-3xl font-bold">MeetSafe Messaging Console (Sender)</h1>
+  <div id="monitorLogSender" class="log-area text-sm space-y-2"></div>
+  <div id="twilioSmsLog" class="log-area text-sm space-y-2"></div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js";
+    import { getFirestore, collection, addDoc, Timestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-lite.js";
+
+    const firebaseConfig = {'apiKey': 'AIzaSyAV52Ads-ckhKuGsKvHoYYTrDIqBHMHusQ', 'authDomain': 'meetsafe-clean-core.firebaseapp.com', 'projectId': 'meetsafe-clean-core', 'storageBucket': 'meetsafe-clean-core.firebasestorage.app', 'messagingSenderId': '970833854934', 'appId': '1:970833854934:web:5ae847503baa2c6c552477', 'measurementId': 'G-E6LBFE2SEB'};
+
+    const app = initializeApp(firebaseConfig);
+    const analytics = getAnalytics(app);
+    const db = getFirestore(app);
+
+    async function sendAppMessageWithFallback(contact, message, rendezvousId) {
+      let messageAcknowledged = false;
+      const fallbackTimeout = setTimeout(() => {
+        if (!messageAcknowledged) {
+          sendTwilioSms(contact.phoneNumber, message, rendezvousId);
+          logToMonitor("Fallback SMS triggered", "warning", "monitorLogSender");
+        }
+      }, 15000);
+
+      try {
+        const ackDoc = {
+          to: contact.id,
+          content: message,
+          rendezvousId: rendezvousId,
+          sentAt: Timestamp.now()
+        };
+
+        await addDoc(collection(db, `artifacts/${rendezvousId}/acks`), ackDoc);
+        logToMonitor("App message sent via FCM", "success", "monitorLogSender");
+      } catch (error) {
+        logToMonitor(`Error sending app message: ${error.message}`, "error", "monitorLogSender");
+      }
+    }
+
+    async function sendTwilioSms(phone, content, rendezvousId) {
+      try {
+        const result = await fetch("/send-sms", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ to: phone, message: content, rendezvousId })
+        });
+        const response = await result.json();
+        if (response.sid) {
+          logToMonitor(`SMS sent. SID: ${response.sid}`, "success", "twilioSmsLog");
+        } else {
+          throw new Error("SID missing in response");
+        }
+      } catch (error) {
+        logToMonitor(`SMS error: ${error.message}`, "error", "twilioSmsLog");
+      }
+    }
+
+    async function sendMessage(recipientContact, messageContent, testRendezvousId) {
+      try {
+        const messagesCollectionRef = collection(db, `artifacts/${testRendezvousId}/messages`);
+        await addDoc(messagesCollectionRef, {
+          to: recipientContact.id,
+          from: "currentUserId",
+          sentAt: Timestamp.now(),
+          delivered: false,
+          method: recipientContact.method,
+          fallback: "none",
+          acknowledged: false,
+          content: messageContent,
+          recipientEmail: recipientContact.email || null,
+          recipientPhone: recipientContact.phoneNumber || null
+        });
+
+        logToMonitor(`Sender: Message initiated to ${recipientContact.name}`, "info", "monitorLogSender");
+
+        if (recipientContact.method === "app") {
+          sendAppMessageWithFallback(recipientContact, messageContent, testRendezvousId);
+        } else if (recipientContact.method === "sms") {
+          await addDoc(messagesCollectionRef, { delivered: true });
+          logToMonitor(`Sender: Direct SMS initiated to ${recipientContact.name}`, "info", "monitorLogSender");
+          if (recipientContact.phoneNumber) {
+            sendTwilioSms(recipientContact.phoneNumber, messageContent, testRendezvousId);
+          } else {
+            logToMonitor(`Sender: Cannot send Direct SMS to ${recipientContact.name} - no phone number`, "warning", "monitorLogSender");
+          }
+        }
+      } catch (error) {
+        logToMonitor(`Sender: Error sending message: ${error.message}`, "error", "monitorLogSender");
+      }
+    }
+
+    function logToMonitor(message, level, targetId) {
+      const logTarget = document.getElementById(targetId);
+      const timestamp = new Date().toLocaleTimeString();
+      const color = {
+        info: "text-blue-600",
+        success: "text-green-600",
+        warning: "text-yellow-600",
+        error: "text-red-600"
+      }[level] || "text-gray-800";
+      if (logTarget) {
+        logTarget.innerHTML += `<p class="${color}">[${timestamp}] ${message}</p>`;
+      }
+    }
+  </script>
+</body>
+</html>
