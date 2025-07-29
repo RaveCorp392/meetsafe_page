@@ -66,6 +66,12 @@
   <div class="bg-white p-4 rounded shadow">
     <h2 class="text-lg font-semibold mb-2">Received Messages Log</h2>
     <input id="testRendezvousIdReceiver" class="input-field" placeholder="Listen to Rendezvous ID (e.g., 'test-rdv-123')" value="test-rdv-123"/>
+    <div class="mt-2">
+      <label class="inline-flex items-center">
+        <input type="checkbox" id="simulateUnreachable" class="form-checkbox h-5 w-5 text-red-600 rounded">
+        <span class="ml-2 text-gray-700">Simulate Unreachable (Do NOT send ACK)</span>
+      </label>
+    </div>
     <button id="startListeningBtn" class="button-primary bg-blue-600 mt-2">Start Listening for Messages</button>
     <div id="receivedMessagesLog" class="log-area bg-blue-900 text-white p-4 h-64 overflow-y-scroll text-sm rounded-lg shadow-inner mt-4">Waiting for messages...</div>
   </div>
@@ -82,7 +88,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getFirestore, collection, query, where, onSnapshot, Timestamp, updateDoc, doc, addDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"; // ADDED addDoc here
+    import { getFirestore, collection, query, where, onSnapshot, Timestamp, updateDoc, doc, addDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"; // Added setDoc for acks
 
     // Firebase configuration provided by the Canvas environment
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -270,6 +276,17 @@
           const messageData = change.doc.data();
           if (change.type === "added") {
             logToMonitor(`New message from ${messageData.from}: "${messageData.content}" (Method: ${messageData.method})`, "received", "receivedMessagesLog");
+            
+            // NEW: Send ACK if not simulating unreachable
+            const simulateUnreachableCheckbox = document.getElementById("simulateUnreachable");
+            if (!simulateUnreachableCheckbox?.checked) {
+                const ackRef = doc(db, `acks/${rendezvousIdToListen}`);
+                setDoc(ackRef, { received: true, at: Timestamp.now(), receiverUid: currentUserIdReceiver });
+                logToMonitor(`Receiver: Sent ACK for rendezvous ID: ${rendezvousIdToListen}`, "success", "receivedMessagesLog");
+            } else {
+                logToMonitor(`Receiver: Simulating unreachable - NOT sending ACK for rendezvous ID: ${rendezvousIdToListen}`, "warning", "receivedMessagesLog");
+            }
+
           } else if (change.type === "modified") {
             logToMonitor(`Message updated (ID: ${change.doc.id}): ${JSON.stringify(messageData)}`, "info", "receivedMessagesLog");
           }
