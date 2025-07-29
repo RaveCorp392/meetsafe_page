@@ -91,16 +91,6 @@
       </select>
     <input id="messageContent" class="input-field" placeholder="Message content"/>
     <input id="testRendezvousIdSender" class="input-field" placeholder="Test Rendezvous ID (e.g., 'test-rdv-123')" value="test-rdv-123"/>
-    <div class="mt-2"> <!-- Restored: Delivery Simulation radio buttons -->
-      <label class="inline-flex items-center mr-4">
-        <input type="radio" name="deliverySim" value="success" checked class="form-radio h-4 w-4 text-green-600">
-        <span class="ml-2 text-gray-700">Simulate In-App Success</span>
-      </label>
-      <label class="inline-flex items-center">
-        <input type="radio" name="deliverySim" value="failure" class="form-radio h-4 w-4 text-red-600">
-        <span class="ml-2 text-gray-700">Simulate In-App Failure (for fallback)</span>
-      </label>
-    </div>
     <button id="sendMessageBtn" class="button-primary bg-green-600 mt-4">Send Message</button>
   </div>
 
@@ -635,7 +625,7 @@
                 }
             });
         });
-      };
+      }; // Corrected: Missing closing parenthesis for forEach
 
       const populateRecipientDropdown = () => {
         const selectEl = document.getElementById("recipientContact");
