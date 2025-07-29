@@ -91,7 +91,6 @@
       </select>
     <input id="messageContent" class="input-field" placeholder="Message content"/>
     <input id="testRendezvousIdSender" class="input-field" placeholder="Test Rendezvous ID (e.g., 'test-rdv-123')" value="test-rdv-123"/>
-    <!-- Removed: Delivery Simulation radio buttons as new logic handles it -->
     <button id="sendMessageBtn" class="button-primary bg-green-600 mt-4">Send Message</button>
   </div>
 
@@ -198,6 +197,7 @@
             return res.json();
         })
         .then(result => {
+            // Corrected: Use result.sid instead of result.id
             logToMonitor(`Twilio: ${type} sent successfully to ${toPhoneNumber}. SID: ${result.sid}`, "success", "twilioSmsLog");
         })
         .catch(error => {
@@ -726,24 +726,26 @@
         }
 
         try {
-          // New logic: Call sendAppMessageWithFallback for app messages, or direct SMS for sms contacts
+          const messagesCollectionRef = collection(db, `artifacts/${appId}/messages/${testRendezvousId}/messages`);
+          const messageRef = await addDoc(messagesCollectionRef, {
+            to: toIdentifier,
+            from: currentUserIdSender,
+            sentAt: Timestamp.now(),
+            delivered: false,
+            method: recipientContact.method,
+            fallback: "none",
+            acknowledged: false,
+            content: messageContent,
+            recipientEmail: recipientContact.email || null,
+            recipientPhone: recipientContact.phoneNumber || null
+          });
+          logToMonitor(`Sender: Message initiated to ${recipientContact.name} via ${recipientContact.method}. Message ID: ${messageRef.id}`, "info", "monitorLogSender");
+
           if (recipientContact.method === "app") {
             sendAppMessageWithFallback(recipientContact, messageContent, testRendezvousId);
           } else if (recipientContact.method === "sms") {
-            // Direct SMS send for SMS-only contacts (for Pro users)
-            const messageRef = await addDoc(collection(db, `artifacts/${appId}/messages/${testRendezvousId}/messages`), {
-                to: toIdentifier,
-                from: currentUserIdSender,
-                sentAt: Timestamp.now(),
-                delivered: true, // Considered delivered upon sending SMS
-                method: "sms",
-                fallback: "none", // Not a fallback, it's primary method
-                acknowledged: false,
-                content: messageContent,
-                recipientEmail: recipientContact.email || null,
-                recipientPhone: recipientContact.phoneNumber || null
-            });
-            logToMonitor(`Sender: Direct SMS initiated to ${recipientContact.name}. Message ID: ${messageRef.id}`, "info", "monitorLogSender");
+            await updateDoc(messageRef, { delivered: true });
+            logToMonitor(`Sender: Direct SMS initiated to ${recipientContact.name}. Message ID: ${messageRef.id}`, "success", "monitorLogSender");
             if (recipientContact.phoneNumber) {
                 sendTwilioSms(recipientContact.phoneNumber, messageContent, messageRef.id, "Direct SMS");
             } else {
