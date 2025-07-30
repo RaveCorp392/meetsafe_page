@@ -395,7 +395,7 @@
                     button.addEventListener('click', async (e) => {
                         const inviteId = e.target.dataset.inviteId;
                         const senderUid = e.target.dataset.senderUid; // Sender's UID
-                        if (!currentUserReceiver) {
+                        if (!currentUserIdReceiver) {
                             logToMonitor("Receiver: Not signed in to decline invite.", "warning", "receivedMessagesLog");
                             return;
                         }
