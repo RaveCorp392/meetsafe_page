@@ -481,7 +481,6 @@
           phoneNumber: phone || null,
           method,
           createdAt: Timestamp.now(),
-          userId: currentUserIdSender,
           inviteStatus: "pending"
         });
         logToMonitor(`Sender: Contact '${name}' added successfully to your list.`, "success", "monitorLogSender");
